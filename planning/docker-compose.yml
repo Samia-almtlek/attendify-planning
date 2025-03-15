@@ -1,0 +1,12 @@
+services:
+  planning:
+    build:
+      context: .
+    ports:
+      - "5000:5000"
+    environment:
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+    env_file:
+      - .env
