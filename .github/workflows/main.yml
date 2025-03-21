@@ -1,4 +1,4 @@
-name: Attendify Planning CI Pipeline
+name: Attendify Planning CI Docker Pipeline
 
 on:
   push:
@@ -9,35 +9,49 @@ on:
       - main
 
 jobs:
-  ci:
-    name: Build and Test Attendify Planning
+  docker-ci:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Haal de repo op
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10' 
-
-      - name: Install dependencies
+      # 2. Maak de service-account.json aan vanuit GitHub Secret
+      - name: Create service account JSON
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          mkdir -p planning
+          echo "${{ secrets.SERVICE_ACCOUNT_JSON }}" > planning/service-account.json
 
-      - name: Lint Python files with flake8
+      # 3. Build Docker image zonder de JSON in de context
+      - name: Build Docker image
         run: |
-          pip install flake8
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          docker build -t attendify-planning planning/
 
-      - name: Verify service runs (basic check)
+      # 4. Run Docker container en geef secrets als environment variables door
+      - name: Run Docker container with secrets
         run: |
-          python app.py &
+          docker run -d --rm \
+            -v ${{ github.workspace }}/planning/service-account.json:/app/service-account.json \
+            -e GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }} \
+            -e GOOGLE_CALENDAR_ID=${{ secrets.GOOGLE_CALENDAR_ID }} \
+            -e GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }} \
+            -p 5000:5000 \
+            --name attendify-planning-container \
+            attendify-planning
+          
+          # Geef even tijd om te starten
           sleep 5
+
+      # 5. Test de API endpoint (basic test)
+      - name: Test API endpoint
+        run: |
           curl --request POST \
             --header "Content-Type: application/json" \
             --data '{"summary":"Test Event","start":"2025-03-22T09:00:00","end":"2025-03-22T10:00:00"}' \
             http://localhost:5000/create-event || exit 1
+
+      # 6. Stop de Docker container na test
+      - name: Stop Docker container
+        run: |
+          docker stop attendify-planning-container
