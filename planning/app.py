@@ -12,6 +12,12 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
     SERVICE_ACCOUNT_FILE, SCOPES)
 service = build('calendar', 'v3', credentials=credentials)
 
+# ✅ Voeg een basale root route toe
+@app.route("/")
+def home():
+    return "Hello, Flask is working! 🚀"
+
+# ✅ Route om een event aan te maken
 @app.route('/create-event', methods=['POST'])
 def create_event():
     event_data = request.json
