@@ -41,5 +41,38 @@ def create_event():
     except Exception as e:
         # Foutafhandeling voor debugging/logging
         return jsonify({"error": str(e)}), 500
+
+@app.route('/grant-access', methods=['POST'])
+def grant_access():
+    try:
+        # E-mailadres ophalen uit JSON of ENV als fallback
+        data = request.json
+        user_email = data.get('email') or os.getenv('OWNER_EMAIL')
+
+        if not user_email:
+            return jsonify({"error": "Geen e-mailadres opgegeven"}), 400
+
+        service = get_service()
+
+        # ACL regel opstellen
+        rule = {
+            'scope': {
+                'type': 'user',
+                'value': user_email
+            },
+            'role': 'owner'  # Of 'writer' als je geen volledige rechten wilt geven
+        }
+
+        # Voeg ACL regel toe aan de 'primary' calendar
+        created_rule = service.acl().insert(calendarId='primary', body=rule).execute()
+
+        return jsonify({
+            "status": f"Toegang verleend aan {user_email}",
+            "acl_rule": created_rule
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
