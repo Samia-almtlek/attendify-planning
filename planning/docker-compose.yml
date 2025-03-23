@@ -1,12 +1,11 @@
+version: "3.8"
+
 services:
   planning:
-    build:
-      context: .
+    build: .
     ports:
       - "5000:5000"
-    environment:
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
-      GOOGLE_CALENDAR_ID: ${GOOGLE_CALENDAR_ID}
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+    volumes:
+      - ./service_account.json:/app/service_account.json
     env_file:
       - .env
