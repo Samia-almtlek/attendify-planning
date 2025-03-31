@@ -1,8 +1,8 @@
 import pika
-
+import os
 print("Creating exchanges, queues and routing keys...")
 
-connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq', 5672, "attendify", pika.PlainCredentials("attendify", "uXe5u1oWkh32JyLA")))
+connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq', 5672, "attendify", pika.PlainCredentials("attendify", os.getenv('RABBITMQ_PASSWORD'))))
 channel = connection.channel()
 
 

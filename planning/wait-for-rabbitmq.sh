@@ -1,9 +1,9 @@
 #!/bin/bash
 # wait-for-rabbitmq.sh
 
-# Define the RabbitMQ credentials
+# Define the RabbitMQ credentials from environment variables
 RABBITMQ_USER="attendify"
-RABBITMQ_PASS="uXe5u1oWkh32JyLA"
+RABBITMQ_PASS="${RABBITMQ_PASSWORD}"
 
 # Wait for RabbitMQ to become ready by checking the alarms endpoint with authentication
 until curl -u "$RABBITMQ_USER:$RABBITMQ_PASS" -s http://rabbitmq:15672/api/health/checks/alarms | grep -q '"status":"ok"'; do

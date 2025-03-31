@@ -8,10 +8,10 @@ import xml.etree.ElementTree as ET
 logging.basicConfig(level=logging.INFO)
 
 # RabbitMQ connection parameters
-RABBITMQ_HOST = 'rabbitmq'
+RABBITMQ_HOST = 'planning-rabbit'
 RABBITMQ_PORT = 5672
 RABBITMQ_USERNAME = 'attendify'
-RABBITMQ_PASSWORD = 'uXe5u1oWkh32JyLA'
+RABBITMQ_PASSWORD = os.environ.get('RABBITMQ_PASSWORD')  # Default voor testen
 RABBITMQ_VHOST = 'attendify'
 
 # Database connection parameters
