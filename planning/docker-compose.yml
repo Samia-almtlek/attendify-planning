@@ -35,13 +35,14 @@ services:
       - RABBITMQ_DEFAULT_USER=attendify
       - RABBITMQ_DEFAULT_VHOST=attendify
     ports:
-      - "15672:15672" # RabbitMQ Management Plugin
-      - "5672:5672" # AMQP
+      - "${RABBITMQ_PORT}:${RABBITMQ_PORT}" # 15672:15672 RabbitMQ Management
+      - "${RABBITMQ_AMQP_PORT}:${RABBITMQ_AMQP_PORT}" # "5672:5672" AMQP
     volumes:
       - /home/frontend/volumes/rabbitmq/data:/var/lib/rabbitmq
 
   python:
     image: python:3.9
+    env_file: ./.env
     container_name: configure-rabbitmq-planning
     volumes:
       - ./configure.py:/usr/local/bin/configure.py
@@ -57,6 +58,7 @@ services:
       - "pip install pika && /usr/local/bin/wait-for-rabbitmq.sh && python3 /usr/local/bin/configure.py && pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
 
   consumer:
+    env_file: ./.env
     image: python:3.9
     volumes:
       - ./consumer/consumer.py:/usr/local/bin/consumer.py
@@ -74,6 +76,7 @@ services:
       - "pip install pika && /usr/local/bin/wait-for-rabbitmq.sh && pip install mysql-connector-python && python3 /usr/local/bin/consumer.py"
 
   heartbeat:
+    env_file: ./.env
     image: python:3.9
     volumes:
       - ./heartbeat/heartbeat.py:/usr/local/bin/heartbeat.py

@@ -1,14 +1,15 @@
 print("Creating the database...")
 import mysql.connector
 from mysql.connector import Error
+import os
 
 def create_connection():
     try:
         connection = mysql.connector.connect(
-            host='db',
-            user='root',  # vervang met jouw MySQL username
-            password='root',  # vervang met jouw MySQL password
-            database='planning'  # vervang met jouw database naam
+            host=os.environ.get(os.environ.get('LOCAL_DB_HOST')),
+            user=os.environ.get(os.environ.get('LOCAL_DB_USER')),
+            password=os.environ.get(os.environ.get('LOCAL_DB_PASSWORD')),
+            database=os.environ.get(os.environ.get('LOCAL_DB_NAME'))
         )
         return connection
     except Error as e:

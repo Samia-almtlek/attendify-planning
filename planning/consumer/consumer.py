@@ -8,17 +8,17 @@ import xml.etree.ElementTree as ET
 logging.basicConfig(level=logging.INFO)
 
 # RabbitMQ connection parameters
-RABBITMQ_HOST = 'planning-rabbit'
-RABBITMQ_PORT = 5672
-RABBITMQ_USERNAME = 'attendify'
+RABBITMQ_HOST = 'rabbitmq'
+RABBITMQ_PORT = os.environ.get('RABBITMQ_AMQP_PORT')
+RABBITMQ_USERNAME = os.environ.get('RABBITMQ_USER')
 RABBITMQ_PASSWORD = os.environ.get('RABBITMQ_PASSWORD')  # Default voor testen
-RABBITMQ_VHOST = 'attendify'
+RABBITMQ_VHOST = os.environ.get('RABBITMQ_HOST')
 
 # Database connection parameters
-DB_HOST = 'db'
-DB_USER = 'root'
-DB_PASSWORD = 'root'
-DB_NAME = 'planning'
+DB_HOST = os.environ.get(os.environ.get('LOCAL_DB_HOST'))
+DB_USER = os.environ.get(os.environ.get('LOCAL_DB_USER'))
+DB_PASSWORD = os.environ.get(os.environ.get('LOCAL_DB_PASSWORD'))
+DB_NAME = os.environ.get(os.environ.get('LOCAL_DB_NAME'))
 
 def create_database_connection():
     try:
