@@ -10,6 +10,8 @@ services:
 
   db:
     image: mysql:8.0
+    ports:
+      - "3307:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=${LOCAL_DB_PASSWORD}
       - MYSQL_DATABASE=${LOCAL_DB_NAME}
@@ -19,43 +21,12 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     ports:
-      - "8080:80"
+      - "8081:80"
     environment:
       - PMA_HOST=db
       - PMA_USER=${LOCAL_DB_USER}
       - PMA_PASSWORD=${LOCAL_DB_PASSWORD}
       - PMA_ARBITRARY=1
-
-  rabbitmq:
-    image: rabbitmq:4-management
-    container_name: planning-rabbit
-    restart: always
-    environment:
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
-      - RABBITMQ_DEFAULT_USER=attendify
-      - RABBITMQ_DEFAULT_VHOST=attendify
-    ports:
-      - "${RABBITMQ_PORT}:${RABBITMQ_PORT}" # 15672:15672 RabbitMQ Management
-      - "${RABBITMQ_AMQP_PORT}:${RABBITMQ_AMQP_PORT}" # "5672:5672" AMQP
-    volumes:
-      - /home/frontend/volumes/rabbitmq/data:/var/lib/rabbitmq
-
-  python:
-    image: python:3.9
-    env_file: ./.env
-    container_name: configure-rabbitmq-planning
-    volumes:
-      - ./configure.py:/usr/local/bin/configure.py
-      - ./wait-for-rabbitmq.sh:/usr/local/bin/wait-for-rabbitmq.sh
-      - ../dbinit.py:/usr/local/bin/dbinit.py
-    environment:
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
-    depends_on:
-      - rabbitmq
-    command:
-      - "sh"
-      - "-c"
-      - "pip install pika && /usr/local/bin/wait-for-rabbitmq.sh && python3 /usr/local/bin/configure.py && pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
 
   consumer:
     env_file: ./.env
@@ -68,27 +39,8 @@ services:
       - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
       - LOCAL_DB_NAME=${LOCAL_DB_NAME}
     depends_on:
-      - rabbitmq
       - db
     command:
       - "sh"
       - "-c"
       - "pip install pika && /usr/local/bin/wait-for-rabbitmq.sh && pip install mysql-connector-python && python3 /usr/local/bin/consumer.py"
-
-  heartbeat:
-    env_file: ./.env
-    image: python:3.9
-    volumes:
-      - ./heartbeat/heartbeat.py:/usr/local/bin/heartbeat.py
-      - ./wait-for-rabbitmq.sh:/usr/local/bin/wait-for-rabbitmq.sh
-    environment:
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
-      - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
-      - LOCAL_DB_NAME=${LOCAL_DB_NAME}
-    depends_on:
-      - rabbitmq
-      - db
-    command:
-      - "sh"
-      - "-c"
-      - "pip install pika && /usr/local/bin/wait-for-rabbitmq.sh && pip install mysql-connector-python && python3 /usr/local/bin/heartbeat.py"
