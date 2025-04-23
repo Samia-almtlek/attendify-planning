@@ -27,13 +27,44 @@ services:
       - PMA_USER=${LOCAL_DB_USER}
       - PMA_PASSWORD=${LOCAL_DB_PASSWORD}
       - PMA_ARBITRARY=1
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: planning-rabbit1
+    environment:
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+      - RABBITMQ_DEFAULT_USER=attendify
+      - RABBITMQ_DEFAULT_VHOST=attendify
+    ports:
+      - "15672:15672" # 15672:15672 RabbitMQ Management
+      - "5672:5672" # "5672:5672" AMQP
+    volumes:
+      - /home/frontend/volumes/rabbitmq/data:/var/lib/rabbitmq
+    restart: always
+
+  python:
+    image: python:3.9
+    env_file: ./.env
+    container_name: configure-rabbitmq-planning
+    volumes:
+      - ./configure.py:/usr/local/bin/configure.py
+      - ../dbinit.py:/usr/local/bin/dbinit.py
+    environment:
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+    depends_on:
+      - rabbitmq
+    command:
+      - "sh"
+      - "-c"
+      - "pip install pika && python3 /usr/local/bin/configure.py && pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
+    restart: on-failure
 
   consumer:
     env_file: ./.env
     image: python:3.9
     volumes:
       - ./consumer/consumer.py:/usr/local/bin/consumer.py
-      - ./wait-for-rabbitmq.sh:/usr/local/bin/wait-for-rabbitmq.sh
     environment:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
@@ -43,4 +74,23 @@ services:
     command:
       - "sh"
       - "-c"
-      - "pip install pika && /usr/local/bin/wait-for-rabbitmq.sh && pip install mysql-connector-python && python3 /usr/local/bin/consumer.py"
+      - "pip install pika && pip install mysql-connector-python && python3 /usr/local/bin/consumer.py"
+    restart: always
+
+  heartbeat:
+    env_file: ./.env
+    image: python:3.9
+    volumes:
+      - ./heartbeat/heartbeat.py:/usr/local/bin/heartbeat.py
+    environment:
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
+      - LOCAL_DB_NAME=${LOCAL_DB_NAME}
+    depends_on:
+      - rabbitmq
+      - db
+    command:
+      - "sh"
+      - "-c"
+      - "pip install pika  && pip install mysql-connector-python && python3 /usr/local/bin/heartbeat.py"
+    restart: always

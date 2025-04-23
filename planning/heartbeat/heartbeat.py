@@ -12,7 +12,7 @@ RABBITMQ_HOST = 'rabbitmq'
 RABBITMQ_PORT = os.environ.get('RABBITMQ_AMQP_PORT')
 RABBITMQ_USERNAME = os.environ.get('RABBITMQ_USER')
 RABBITMQ_PASSWORD = os.environ.get('RABBITMQ_PASSWORD')  # Default voor testen
-RABBITMQ_VHOST = os.environ.get('RABBITMQ_HOST')
+RABBITMQ_VHOST = os.environ.get('RABBITMQ_USER')
 
 # Heartbeat-specific parameters
 SENDER = 'planning'
@@ -37,12 +37,6 @@ def main():
     )
     channel = connection.channel()
 
-    # Declareer de exchange (type 'direct' voor eenvoudige routing)
-    channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type='topic', durable=True)
-
-    # Declareer de queue en bind deze aan de exchange met de routing key
-    channel.queue_declare(queue=QUEUE_NAME, durable=True)
-    channel.queue_bind(queue=QUEUE_NAME, exchange=EXCHANGE_NAME, routing_key=ROUTING_KEY)
 
     logging.info(f"Starting heartbeat for {CONTAINER_NAME} to exchange {EXCHANGE_NAME} with routing key {ROUTING_KEY}")
     try:
