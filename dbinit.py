@@ -6,13 +6,18 @@ import os
 def create_connection():
     try:
         connection = mysql.connector.connect(
-            host=os.environ.get(os.environ.get('LOCAL_DB_HOST')),
-            user=os.environ.get(os.environ.get('LOCAL_DB_USER')),
-            password=os.environ.get(os.environ.get('LOCAL_DB_PASSWORD')),
-            database=os.environ.get(os.environ.get('LOCAL_DB_NAME'))
+            host=os.environ.get('LOCAL_DB_HOST', 'db'),  # default fallback 'db'
+            user=os.environ.get('LOCAL_DB_USER', 'root'),
+            password=os.environ.get('LOCAL_DB_PASSWORD', 'root'),
+            database=os.environ.get('LOCAL_DB_NAME', 'planning')
+            
         )
         return connection
     except Error as e:
+        print(f"Verbinding maken met:")
+        print(f"Host:", os.environ.get('LOCAL_DB_HOST'))
+        print(f"User:", os.environ.get('LOCAL_DB_USER'))
+        print(f"Database:", os.environ.get('LOCAL_DB_NAME'))
         print(f"Error bij verbinden met MySQL: {e}")
         return None
 
