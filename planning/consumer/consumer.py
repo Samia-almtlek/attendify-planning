@@ -4,6 +4,7 @@ from mysql.connector import Error
 import os
 import logging
 import xml.etree.ElementTree as ET
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 
@@ -61,16 +62,25 @@ def user_exists(connection, email):
     finally:
         cursor.close()
 
+def generate_custom_id():
+    prefix = "PL"
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]  # bijv. 20250423151015879
+    return f"{prefix}{timestamp}"
+
+
 def create_user(connection, first_name, last_name, email, title):
     try:
         if user_exists(connection, email):
             logging.warning(f"User with email {email} already exists, skipping creation")
-            return False  # Gebruiker bestaat al, maar we zullen toch acknowledge doen
+            return False
+
+        user_id = generate_custom_id()
+
         cursor = connection.cursor()
-        query = "INSERT INTO users (first_name, last_name, email, title) VALUES (%s, %s, %s, %s)"
-        cursor.execute(query, (first_name, last_name, email, title))
+        query = "INSERT INTO users (user_id, first_name, last_name, email, title) VALUES (%s, %s, %s, %s, %s)"
+        cursor.execute(query, (user_id, first_name, last_name, email, title))
         connection.commit()
-        logging.info(f"User created: {email}")
+        logging.info(f"User created: {email} with ID: {user_id}")
         return True
     except Error as e:
         logging.error(f"Error creating user: {e}")
