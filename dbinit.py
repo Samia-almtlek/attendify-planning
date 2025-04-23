@@ -2,6 +2,7 @@ print("Creating the database...")
 import mysql.connector
 from mysql.connector import Error
 import os
+from datetime import datetime
 
 def create_connection():
     try:
@@ -27,6 +28,7 @@ def create_table(connection):
         create_table_query = """
         CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id VARCHAR(50) UNIQUE NOT NULL,
             first_name VARCHAR(50) NOT NULL,
             last_name VARCHAR(50) NOT NULL,
             email VARCHAR(100) UNIQUE NOT NULL,
@@ -44,14 +46,15 @@ def create_table(connection):
 def insert_user(connection):
     try:
         cursor = connection.cursor()
+        user_id = generate_custom_id()
         insert_query = """
-        INSERT INTO users (first_name, last_name, email, title)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO users (user_id, first_name, last_name, email, title)
+        VALUES (%s, %s, %s, %s, %s)
         """
         user_data = ('Pieter', 'Doe', 'test@test.com', 'mr')
         cursor.execute(insert_query, user_data)
         connection.commit()
-        print("Gebruiker succesvol toegevoegd")
+        print(f"Gebruiker succesvol toegevoegd met ID: {user_id}")
     except Error as e:
         print(f"Error bij invoegen gebruiker: {e}")
     finally:
