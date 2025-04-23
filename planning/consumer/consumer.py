@@ -6,6 +6,9 @@ import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
+from dotenv import load_dotenv
+load_dotenv()  
+
 logging.basicConfig(level=logging.INFO)
 
 # RabbitMQ connection parameters
