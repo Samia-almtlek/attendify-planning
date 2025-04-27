@@ -7,6 +7,13 @@ import xml.etree.ElementTree as ET
 
 logging.basicConfig(level=logging.INFO)
 
+SERVICES = [
+    ('planning-planning-1', 5000),
+    ('planning-db-1', 3306),
+    ('planning-phpmyadmin-1', 80),
+    ('planning-consumer-1', 80),
+]
+ 
 # RabbitMQ connection parameters
 RABBITMQ_HOST = 'rabbitmq'
 RABBITMQ_PORT = os.environ.get('RABBITMQ_AMQP_PORT')
