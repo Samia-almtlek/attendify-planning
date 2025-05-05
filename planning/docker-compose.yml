@@ -2,43 +2,58 @@ services:
   planning:
     build: .
     ports:
-      - "5000:5000"
+      - "5001:5000"
     volumes:
       - ./service_account.json:/app/service_account.json
     env_file:
       - .env
+    networks:
+      - attendify_net
+      - planning_net
 
   db:
     image: mysql:8.0
+    ports:
+      - "3307:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=${LOCAL_DB_PASSWORD}
       - MYSQL_DATABASE=${LOCAL_DB_NAME}
     volumes:
       - ./.docker/mysql-data:/var/lib/mysql
+    networks:
+      - planning_net
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     ports:
-      - "8080:80"
+      - "8081:80"
     environment:
       - PMA_HOST=db
       - PMA_USER=${LOCAL_DB_USER}
       - PMA_PASSWORD=${LOCAL_DB_PASSWORD}
       - PMA_ARBITRARY=1
+    restart: always
+    networks:
+      - planning_net
 
   rabbitmq:
     image: rabbitmq:4-management
-    container_name: planning-rabbit
-    restart: always
+    container_name: planning-rabbit1
     environment:
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
       - RABBITMQ_DEFAULT_USER=attendify
       - RABBITMQ_DEFAULT_VHOST=attendify
     ports:
-      - "${RABBITMQ_PORT}:${RABBITMQ_PORT}" # 15672:15672 RabbitMQ Management
-      - "${RABBITMQ_AMQP_PORT}:${RABBITMQ_AMQP_PORT}" # "5672:5672" AMQP
+      - "15672:15672" # 15672:15672 RabbitMQ Management
+      - "5672:5672" # "5672:5672" AMQP
     volumes:
       - /home/frontend/volumes/rabbitmq/data:/var/lib/rabbitmq
+    restart: always
+    profiles:
+      - dev 
+    networks:
+      - attendify_net
+      - planning_net
 
   python:
     image: python:3.9
@@ -46,7 +61,6 @@ services:
     container_name: configure-rabbitmq-planning
     volumes:
       - ./configure.py:/usr/local/bin/configure.py
-      - ./wait-for-rabbitmq.sh:/usr/local/bin/wait-for-rabbitmq.sh
       - ../dbinit.py:/usr/local/bin/dbinit.py
     environment:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
@@ -55,40 +69,58 @@ services:
     command:
       - "sh"
       - "-c"
-      - "pip install pika && /usr/local/bin/wait-for-rabbitmq.sh && python3 /usr/local/bin/configure.py && pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
+      - "pip install pika && python3 /usr/local/bin/configure.py && pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
+    restart: on-failure
+    profiles:
+      - dev 
+    networks:
+      - attendify_net
+      - planning_net
 
   consumer:
     env_file: ./.env
     image: python:3.9
     volumes:
       - ./consumer/consumer.py:/usr/local/bin/consumer.py
-      - ./wait-for-rabbitmq.sh:/usr/local/bin/wait-for-rabbitmq.sh
     environment:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
       - LOCAL_DB_NAME=${LOCAL_DB_NAME}
     depends_on:
-      - rabbitmq
       - db
     command:
       - "sh"
       - "-c"
-      - "pip install pika && /usr/local/bin/wait-for-rabbitmq.sh && pip install mysql-connector-python && python3 /usr/local/bin/consumer.py"
+      - "pip install pika && pip install mysql-connector-python && python3 /usr/local/bin/consumer.py"
+    restart: always
+    networks:
+      - attendify_net
+      - planning_net
 
   heartbeat:
     env_file: ./.env
     image: python:3.9
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./heartbeat/heartbeat.py:/usr/local/bin/heartbeat.py
-      - ./wait-for-rabbitmq.sh:/usr/local/bin/wait-for-rabbitmq.sh
     environment:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
       - LOCAL_DB_NAME=${LOCAL_DB_NAME}
     depends_on:
-      - rabbitmq
       - db
     command:
       - "sh"
       - "-c"
-      - "pip install pika && /usr/local/bin/wait-for-rabbitmq.sh && pip install mysql-connector-python && python3 /usr/local/bin/heartbeat.py"
+      - "pip install pika  && pip install mysql-connector-python && python3 /usr/local/bin/heartbeat.py"
+    restart: always
+    networks:
+      - attendify_net
+      - planning_net
+
+networks:
+  attendify_net:
+    driver: bridge
+    name: attendify_net_dev
+  planning_net:
+    driver: bridge
