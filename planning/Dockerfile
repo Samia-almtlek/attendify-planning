@@ -8,8 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-COPY service_account.json /app/service_account.json
-
+COPY planning/service_account.json /app/service_account.json
 
 
 EXPOSE 5000
