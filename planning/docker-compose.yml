@@ -1,20 +1,25 @@
+networks:
+  attendify_net:
+    driver: bridge
+    name: attendify_net
+
+  planning_net:
+    driver: bridge
+
 services:
   planning:
     build: .
     ports:
-      - "5001:5000"
+      - "30018:5000"
     volumes:
       - ./service_account.json:/app/service_account.json
     env_file:
       - .env
-    networks:
-      - attendify_net
-      - planning_net
 
   db:
     image: mysql:8.0
     ports:
-      - "3307:3306"
+      - "30013:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=${LOCAL_DB_PASSWORD}
       - MYSQL_DATABASE=${LOCAL_DB_NAME}
@@ -26,7 +31,7 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     ports:
-      - "8081:80"
+      - "30012:80"
     environment:
       - PMA_HOST=db
       - PMA_USER=${LOCAL_DB_USER}
@@ -50,9 +55,8 @@ services:
       - /home/frontend/volumes/rabbitmq/data:/var/lib/rabbitmq
     restart: always
     profiles:
-      - dev 
+      - dev
     networks:
-      - attendify_net
       - planning_net
 
   python:
@@ -61,20 +65,35 @@ services:
     container_name: configure-rabbitmq-planning
     volumes:
       - ./configure.py:/usr/local/bin/configure.py
-      - ../dbinit.py:/usr/local/bin/dbinit.py
+      - ./dbinit/usertable.py:/usr/local/bin/dbinit.py
     environment:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
-    depends_on:
-      - rabbitmq
     command:
       - "sh"
       - "-c"
       - "pip install pika && python3 /usr/local/bin/configure.py && pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
     restart: on-failure
     profiles:
-      - dev 
+      - dev
     networks:
-      - attendify_net
+      - planning_net
+
+  python2:
+    image: python:3.9
+    env_file: ./.env
+    container_name: configure-database-planning
+    volumes:
+      - ./dbinit/usertable.py:/usr/local/bin/dbinit.py
+    environment:
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+    command:
+      - "sh"
+      - "-c"
+      - "pip install pika &&  pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
+    restart: on-failure
+    profiles:
+      - dbinit
+    networks:
       - planning_net
 
   consumer:
@@ -94,8 +113,8 @@ services:
       - "pip install pika && pip install mysql-connector-python && python3 /usr/local/bin/consumer.py"
     restart: always
     networks:
-      - attendify_net
       - planning_net
+      - attendify_net
 
   heartbeat:
     env_file: ./.env
@@ -115,12 +134,5 @@ services:
       - "pip install pika  && pip install mysql-connector-python && python3 /usr/local/bin/heartbeat.py"
     restart: always
     networks:
-      - attendify_net
       - planning_net
-
-networks:
-  attendify_net:
-    driver: bridge
-    name: attendify_net_dev
-  planning_net:
-    driver: bridge
+      - attendify_net

@@ -6,9 +6,6 @@ import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-from dotenv import load_dotenv
-load_dotenv()  
-
 logging.basicConfig(level=logging.INFO)
 
 # RabbitMQ connection parameters
@@ -43,47 +40,40 @@ def parse_message(message):
         info = root.find('info')
         operation = info.find('operation').text
         user_elem = root.find('user')
+        uid = user_elem.find('uid').text
         first_name = user_elem.find('first_name').text
         last_name = user_elem.find('last_name').text
         email = user_elem.find('email').text
         title = user_elem.find('title').text
-        return operation, first_name, last_name, email, title
+        return operation, uid, first_name, last_name, email, title
     except Exception as e:
         logging.error(f"Error parsing message: {e}")
-        return None, None, None, None, None
+        return None, None, None, None, None, None
 
-def user_exists(connection, email):
+def user_id_exists(connection, uid):
     try:
         cursor = connection.cursor()
-        query = "SELECT COUNT(*) FROM users WHERE email = %s"
-        cursor.execute(query, (email,))
+        query = "SELECT COUNT(*) FROM users WHERE user_id = %s"
+        cursor.execute(query, (uid,))
         result = cursor.fetchone()
         return result[0] > 0
     except Error as e:
-        logging.error(f"Error checking if user exists: {e}")
+        logging.error(f"Error checking if user ID exists: {e}")
         return False
     finally:
         cursor.close()
 
-def generate_custom_id():
-    prefix = "PL"
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]  # bijv. 20250423151015879
-    return f"{prefix}{timestamp}"
-
-
-def create_user(connection, first_name, last_name, email, title):
+def create_user(connection, uid, first_name, last_name, email, title):
     try:
-        if user_exists(connection, email):
-            logging.warning(f"User with email {email} already exists, skipping creation")
+        if user_id_exists(connection, uid):
+            logging.warning(f"User ID {uid} already exists, skipping creation")
             return False
-
-        user_id = generate_custom_id()
 
         cursor = connection.cursor()
         query = "INSERT INTO users (user_id, first_name, last_name, email, title) VALUES (%s, %s, %s, %s, %s)"
-        cursor.execute(query, (user_id, first_name, last_name, email, title))
+        cursor.execute(query, (uid, first_name, last_name, email, title))
         connection.commit()
-        logging.info(f"User created: {email} with ID: {user_id}")
+        logging.info(f"User created: {email} with ID: {uid}")
         return True
     except Error as e:
         logging.error(f"Error creating user: {e}")
@@ -92,16 +82,16 @@ def create_user(connection, first_name, last_name, email, title):
         if 'cursor' in locals():
             cursor.close()
 
-def update_user(connection, first_name, last_name, email, title):
+def update_user(connection, uid, first_name, last_name, email, title):
     try:
         cursor = connection.cursor()
-        query = "UPDATE users SET first_name=%s, last_name=%s, title=%s WHERE email=%s"
-        cursor.execute(query, (first_name, last_name, title, email))
+        query = "UPDATE users SET first_name=%s, last_name=%s, email=%s, title=%s WHERE user_id=%s"
+        cursor.execute(query, (first_name, last_name, email, title, uid))
         if cursor.rowcount == 0:
-            logging.warning(f"No user found with email {email} to update")
+            logging.warning(f"No user found with ID {uid} to update")
         else:
             connection.commit()
-            logging.info(f"User updated: {email}")
+            logging.info(f"User updated: {uid}")
         return True
     except Error as e:
         logging.error(f"Error updating user: {e}")
@@ -110,16 +100,16 @@ def update_user(connection, first_name, last_name, email, title):
         if 'cursor' in locals():
             cursor.close()
 
-def delete_user(connection, email):
+def delete_user(connection, uid):
     try:
         cursor = connection.cursor()
-        query = "DELETE FROM users WHERE email=%s"
-        cursor.execute(query, (email,))
+        query = "DELETE FROM users WHERE user_id=%s"
+        cursor.execute(query, (uid,))
         if cursor.rowcount == 0:
-            logging.warning(f"No user found with email {email} to delete")
+            logging.warning(f"No user found with ID {uid} to delete")
         else:
             connection.commit()
-            logging.info(f"User deleted: {email}")
+            logging.info(f"User deleted: {uid}")
         return True
     except Error as e:
         logging.error(f"Error deleting user: {e}")
@@ -129,34 +119,30 @@ def delete_user(connection, email):
             cursor.close()
 
 def callback(ch, method, properties, body):
-    operation, first_name, last_name, email, title = parse_message(body)
+    operation, uid, first_name, last_name, email, title = parse_message(body)
     if operation is None:
         logging.error("Failed to parse message, acknowledging anyway")
-        ch.basic_ack(delivery_tag=method.delivery_tag)
         return
 
     connection_db = create_database_connection()
     if connection_db is None:
         logging.error("Failed to connect to database, acknowledging message")
-        ch.basic_ack(delivery_tag=method.delivery_tag)
         return
 
     try:
         if operation == 'create':
-            create_user(connection_db, first_name, last_name, email, title)
-            ch.basic_ack(delivery_tag=method.delivery_tag)  # Altijd acknowledge, zelfs als gebruiker al bestaat of bij fout
+            create_user(connection_db, uid, first_name, last_name, email, title)
+
         elif operation == 'update':
-            update_user(connection_db, first_name, last_name, email, title)
-            ch.basic_ack(delivery_tag=method.delivery_tag)  # Altijd acknowledge, zelfs bij fout
+            update_user(connection_db, uid, first_name, last_name, email, title)
+
         elif operation == 'delete':
-            delete_user(connection_db, email)
-            ch.basic_ack(delivery_tag=method.delivery_tag)  # Altijd acknowledge, zelfs bij fout
+            delete_user(connection_db, uid)
+
         else:
-            logging.error(f"Unknown operation: {operation}, acknowledging message")
-            ch.basic_ack(delivery_tag=method.delivery_tag)
+            logging.error(f"Unknown operation: {operation}")
     except Exception as e:
-        logging.error(f"Unexpected error processing message: {e}, acknowledging message")
-        ch.basic_ack(delivery_tag=method.delivery_tag)
+        logging.error(f"Unexpected error processing message: {e}")
     finally:
         connection_db.close()
 

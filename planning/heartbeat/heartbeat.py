@@ -81,12 +81,11 @@ def check_service_status(container_name):
 
 def create_heartbeat_message(container_name):
     """Create a heartbeat XML message with container name as sender"""
-    root = ET.Element('attendify')
-    info = ET.SubElement(root, 'info')
+    info = ET.Element('heartbeat')
     ET.SubElement(info, 'sender').text = 'planning'
     ET.SubElement(info, 'container_name').text = container_name
     ET.SubElement(info, 'timestamp').text = datetime.utcnow().isoformat() + 'Z'
-    return ET.tostring(root, encoding='utf-8', method='xml')
+    return ET.tostring(info, encoding='utf-8', method='xml')
 
 def main():
     credentials = pika.PlainCredentials(username=RABBITMQ_USERNAME, password=RABBITMQ_PASSWORD)
