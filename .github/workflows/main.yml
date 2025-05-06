@@ -23,7 +23,7 @@ jobs:
       - name: Create service account JSON
         run: |
           mkdir -p planning
-          echo "${{ secrets.SERVICE_ACCOUNT_JSON }}" > planning/serviceـaccount.json
+          echo "${{ secrets.SERVICE_ACCOUNT_JSON }}" > planning/service_account.json
 
       # 3. Build Docker image
       - name: Build Docker image
@@ -34,7 +34,7 @@ jobs:
       - name: Run Docker container with secrets
         run: |
           docker run -d --rm \
-            -v ${{ github.workspace }}/planning/serviceـaccount.json:/app/serviceـaccount.json \
+            -v ${{ github.workspace }}/planning/service_account.json:/app/service_account.json
             -e GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }} \
             -e GOOGLE_CALENDAR_ID=${{ secrets.GOOGLE_CALENDAR_ID }} \
             -e GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }} \
