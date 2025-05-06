@@ -122,7 +122,6 @@ def callback(ch, method, properties, body):
     operation, uid, first_name, last_name, email, title = parse_message(body)
     if operation is None:
         logging.error("Failed to parse message, acknowledging anyway")
-        ch.basic_ack(delivery_tag=method.delivery_tag)
         return
 
     connection_db = create_database_connection()
@@ -133,22 +132,18 @@ def callback(ch, method, properties, body):
     try:
         if operation == 'create':
             create_user(connection_db, uid, first_name, last_name, email, title)
-            ch.basic_ack(delivery_tag=method.delivery_tag)  # Altijd acknowledge, zelfs als gebruiker al bestaat of bij fout
 
         elif operation == 'update':
             update_user(connection_db, uid, first_name, last_name, email, title)
-            ch.basic_ack(delivery_tag=method.delivery_tag)  # Altijd acknowledge, zelfs als gebruiker al bestaat of bij fout
 
         elif operation == 'delete':
             delete_user(connection_db, uid)
-            ch.basic_ack(delivery_tag=method.delivery_tag)  # Altijd acknowledge, zelfs als gebruiker al bestaat of bij fout
 
         else:
             logging.error(f"Unknown operation: {operation}")
     except Exception as e:
         logging.error(f"Unexpected error processing message: {e}")
     finally:
-        ch.basic_ack(delivery_tag=method.delivery_tag)
         connection_db.close()
 
 def main():
