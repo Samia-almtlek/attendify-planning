@@ -12,6 +12,6 @@ COPY service_account.json /app/service_account.json
 
 
 
-EXPOSE 5000
+EXPOSE 5001
 
 CMD ["python", "app.py"]

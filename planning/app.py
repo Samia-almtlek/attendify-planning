@@ -3,6 +3,8 @@ from googleapiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 import os
+import pika
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -64,7 +66,12 @@ def create_event():
         # Create the event in the Google Calendar
         created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
 
-        return jsonify({"status": "Evenement succesvol aangemaakt.", "event_id": created_event['id']}), 201
+        send_to_rabbitmq(event_data)
+
+        return jsonify({
+            "status": "Evenement succesvol aangemaakt en verzonden naar RabbitMQ.",
+            "event_id": created_event['id']
+        }), 201, 
 
     except Exception as e:
         return jsonify({"error": f"Er is een fout opgetreden: {str(e)}"}), 500
@@ -151,6 +158,27 @@ def get_service():
     )
     service = build('calendar', 'v3', credentials=credentials)
     return service
+def send_to_rabbitmq(event_data):
+    # Load connection settings from environment (Docker .env variables)
+    rabbit_host = os.environ.get('RABBITMQ_HOST')        # e.g., "attendify" (Docker service name)
+    rabbit_port = int(os.environ.get('RABBITMQ_AMQP_PORT', 5672))
+    rabbit_user = os.environ.get('RABBITMQ_USER')
+    rabbit_pass = os.environ.get('RABBITMQ_PASSWORD')
+    
+    # Set up credentials and connection parameters for RabbitMQ
+    credentials = pika.PlainCredentials(rabbit_user, rabbit_pass)
+    parameters = pika.ConnectionParameters(host=rabbit_host, port=rabbit_port, credentials=credentials, virtual_host='attendify')
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    
+    # Declare the queue (ensures it exists; durable if you want the queue to survive restarts)
+    channel.queue_declare(queue='planning.event', durable=True)
+    
+    # Publish the event data as a JSON-formatted string to the 'planning.event' queue
+    message_body = json.dumps(event_data)
+    channel.basic_publish(exchange='', routing_key='planning.event', body=message_body)
+    
+    connection.close()
 
 if __name__ == "__main__":
     # Start the Flask server
