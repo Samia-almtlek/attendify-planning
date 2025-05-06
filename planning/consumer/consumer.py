@@ -128,7 +128,6 @@ def callback(ch, method, properties, body):
     connection_db = create_database_connection()
     if connection_db is None:
         logging.error("Failed to connect to database, acknowledging message")
-        ch.basic_ack(delivery_tag=method.delivery_tag)
         return
 
     try:
