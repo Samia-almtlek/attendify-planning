@@ -6,3 +6,4 @@ attendify-planning-7727d64e4bfb.json
 service_account.json
 
 .docker/
+planning/service-account.json
