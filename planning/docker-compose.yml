@@ -1,3 +1,11 @@
+networks:
+  attendify_net:
+    external: true
+    name: attendify_net
+
+  planning_net:
+    driver: bridge
+
 services:
   planning:
     build: .
@@ -17,6 +25,8 @@ services:
       - MYSQL_DATABASE=${LOCAL_DB_NAME}
     volumes:
       - ./.docker/mysql-data:/var/lib/mysql
+    networks:
+      - planning_net
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
@@ -28,6 +38,8 @@ services:
       - PMA_PASSWORD=${LOCAL_DB_PASSWORD}
       - PMA_ARBITRARY=1
     restart: always
+    networks:
+      - planning_net
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -44,6 +56,7 @@ services:
     restart: always
     profiles:
       - dev
+
   python:
     image: python:3.9
     env_file: ./.env
@@ -60,6 +73,8 @@ services:
     restart: on-failure
     profiles:
       - dev
+    networks:
+      - planning_net
 
   python2:
     image: python:3.9
@@ -76,6 +91,8 @@ services:
     restart: on-failure
     profiles:
       - dbinit
+    networks:
+      - planning_net
 
   consumer:
     env_file: ./.env
@@ -93,6 +110,9 @@ services:
       - "-c"
       - "pip install pika && pip install mysql-connector-python && python3 /usr/local/bin/consumer.py"
     restart: always
+    networks:
+      - planning_net
+      - attendify_net
 
   heartbeat:
     env_file: ./.env
@@ -111,3 +131,6 @@ services:
       - "-c"
       - "pip install pika  && pip install mysql-connector-python && python3 /usr/local/bin/heartbeat.py"
     restart: always
+    networks:
+      - planning_net
+      - attendify_net
