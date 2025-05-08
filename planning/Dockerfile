@@ -10,6 +10,8 @@ COPY . .
 
 COPY service_account.json /app/service_account.json
 
+COPY . /usr/src/app
+
 
 
 EXPOSE 5001
