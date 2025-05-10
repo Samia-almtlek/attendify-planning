@@ -65,13 +65,12 @@ services:
     container_name: configure-rabbitmq-planning
     volumes:
       - ./configure.py:/usr/local/bin/configure.py
-      - ./dbinit/usertable.py:/usr/local/bin/dbinit.py
     environment:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     command:
       - "sh"
       - "-c"
-      - "pip install pika && python3 /usr/local/bin/configure.py && pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
+      - "pip install pika && python3 /usr/local/bin/configure.py "
     restart: on-failure
     profiles:
       - dev
@@ -83,16 +82,17 @@ services:
     env_file: ./.env
     container_name: configure-database-planning
     volumes:
-      - ./dbinit/usertable.py:/usr/local/bin/dbinit.py
+      - ./dbinit:/usr/local/bin/dbinit
     environment:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     command:
       - "sh"
       - "-c"
-      - "pip install pika &&  pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
+      - "pip install pika &&  pip install mysql-connector-python && python3 /usr/local/bin/dbinit/usertable.py && python3 /usr/local/bin/dbinit/user_event_table.py"
     restart: on-failure
     profiles:
       - dbinit
+      - dev
     networks:
       - planning_net
 
@@ -132,6 +132,26 @@ services:
       - "sh"
       - "-c"
       - "pip install pika  && pip install mysql-connector-python && python3 /usr/local/bin/heartbeat.py"
+    restart: always
+    networks:
+      - planning_net
+      - attendify_net
+
+  consumer-user-link:
+    env_file: ./.env
+    image: python:3.9
+    volumes:
+      - ./consumer/consumer_user_link_eventsession.py:/usr/local/bin/consumer_user_link_eventsession.py
+    environment:
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
+      - LOCAL_DB_NAME=${LOCAL_DB_NAME}
+    depends_on:
+      - db
+    command:
+      - "sh"
+      - "-c"
+      - "pip install pika && pip install mysql-connector-python && python3 /usr/local/bin/consumer_user_link_eventsession.py"
     restart: always
     networks:
       - planning_net
