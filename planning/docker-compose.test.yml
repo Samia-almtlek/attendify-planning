@@ -1,0 +1,7 @@
+networks:
+  attendify_net:
+    driver: bridge
+    name: attendify_net
+
+  planning_net:
+    driver: bridge

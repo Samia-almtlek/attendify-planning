@@ -13,7 +13,7 @@ COPY service_account.json /app/service_account.json
 COPY . /usr/src/app
 
 
-
 EXPOSE 5001
+
 
 CMD ["python", "app.py"]

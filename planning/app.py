@@ -10,6 +10,7 @@ from flask_sqlalchemy import SQLAlchemy
 # Load environment variables
 load_dotenv()
 
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///planning.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -71,6 +72,7 @@ def send_to_rabbitmq(event_data):
     connection.close()
 
 # Routes
+
 @app.route('/')
 def home():
     return "Planning API draait!"
@@ -93,6 +95,7 @@ def create_event():
 
         calendar_id = os.getenv('GOOGLE_CALENDAR_ID')
         created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
+        send_to_rabbitmq(event_data)
 
         send_to_rabbitmq(created_event)
         return jsonify({"status": "Event aangemaakt", "event_id": created_event['id']}), 201
@@ -109,6 +112,7 @@ def list_events():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/events/<string:event_id>', methods=['GET'])
+
 def get_event(event_id):
     try:
         service = get_service()
@@ -139,6 +143,7 @@ def update_event(event_id):
         return jsonify({"error": str(e)}), 500
 
 @app.route('/events/<string:event_id>', methods=['DELETE'])
+
 def delete_event(event_id):
     try:
         service = get_service()

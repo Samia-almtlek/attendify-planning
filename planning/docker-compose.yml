@@ -1,8 +1,16 @@
+networks:
+  attendify_net:
+    driver: bridge
+    name: attendify_net
+
+  planning_net:
+    driver: bridge
+
 services:
   planning:
     build: .
     ports:
-      - "5001:5000"
+      - "30018:5000"
     volumes:
       - ./service_account.json:/app/service_account.json
     env_file:
@@ -11,23 +19,27 @@ services:
   db:
     image: mysql:8.0
     ports:
-      - "3307:3306"
+      - "30013:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=${LOCAL_DB_PASSWORD}
       - MYSQL_DATABASE=${LOCAL_DB_NAME}
     volumes:
       - ./.docker/mysql-data:/var/lib/mysql
+    networks:
+      - planning_net
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     ports:
-      - "8081:80"
+      - "30012:80"
     environment:
       - PMA_HOST=db
       - PMA_USER=${LOCAL_DB_USER}
       - PMA_PASSWORD=${LOCAL_DB_PASSWORD}
       - PMA_ARBITRARY=1
     restart: always
+    networks:
+      - planning_net
 
   rabbitmq:
     image: rabbitmq:4-management
@@ -42,6 +54,10 @@ services:
     volumes:
       - /home/frontend/volumes/rabbitmq/data:/var/lib/rabbitmq
     restart: always
+    profiles:
+      - dev
+    networks:
+      - planning_net
 
   python:
     image: python:3.9
@@ -49,16 +65,36 @@ services:
     container_name: configure-rabbitmq-planning
     volumes:
       - ./configure.py:/usr/local/bin/configure.py
-      - ../dbinit.py:/usr/local/bin/dbinit.py
+      - ./dbinit/usertable.py:/usr/local/bin/dbinit.py
     environment:
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
-    depends_on:
-      - rabbitmq
     command:
       - "sh"
       - "-c"
       - "pip install pika && python3 /usr/local/bin/configure.py && pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
     restart: on-failure
+    profiles:
+      - dev
+    networks:
+      - planning_net
+
+  python2:
+    image: python:3.9
+    env_file: ./.env
+    container_name: configure-database-planning
+    volumes:
+      - ./dbinit/usertable.py:/usr/local/bin/dbinit.py
+    environment:
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+    command:
+      - "sh"
+      - "-c"
+      - "pip install pika &&  pip install mysql-connector-python && python3 /usr/local/bin/dbinit.py"
+    restart: on-failure
+    profiles:
+      - dbinit
+    networks:
+      - planning_net
 
   consumer:
     env_file: ./.env
@@ -76,6 +112,9 @@ services:
       - "-c"
       - "pip install pika && pip install mysql-connector-python && python3 /usr/local/bin/consumer.py"
     restart: always
+    networks:
+      - planning_net
+      - attendify_net
 
   heartbeat:
     env_file: ./.env
@@ -88,10 +127,12 @@ services:
       - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
       - LOCAL_DB_NAME=${LOCAL_DB_NAME}
     depends_on:
-      - rabbitmq
       - db
     command:
       - "sh"
       - "-c"
       - "pip install pika  && pip install mysql-connector-python && python3 /usr/local/bin/heartbeat.py"
     restart: always
+    networks:
+      - planning_net
+      - attendify_net
