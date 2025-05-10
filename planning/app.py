@@ -143,6 +143,12 @@ def delete_event(event_id):
     try:
         service = get_service()
         service.events().delete(calendarId=os.getenv('GOOGLE_CALENDAR_ID'), eventId=event_id).execute()
+
+        send_to_rabbitmq({
+            "action": "delete",
+            "event_id": event_id
+        })
+
         return jsonify({"status": f"Event {event_id} verwijderd."}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 404
@@ -150,22 +156,36 @@ def delete_event(event_id):
 @app.route('/calendar/notify', methods=['POST'])
 def calendar_notify():
     state = request.headers.get("X-Goog-Resource-State")
-    print(f"[Webhook] Triggered. State: {state}")
+    resource_id = request.headers.get("X-Goog-Resource-ID")
+    print(f"[Webhook] Triggered. State: {state}, Resource ID: {resource_id}")
+    print(f"[Headers] {dict(request.headers)}")
 
-    if state in ['exists', 'update']:
-        try:
-            service = get_service()
+    try:
+        service = get_service()
+        calendar_id = os.getenv("GOOGLE_CALENDAR_ID")
+
+        if state in ["exists", "update"]:
             events = service.events().list(
-                calendarId=os.getenv("GOOGLE_CALENDAR_ID"),
+                calendarId=calendar_id,
                 maxResults=1,
                 singleEvents=True,
                 orderBy="startTime"
             ).execute()
             items = events.get('items', [])
             if items:
-                send_to_rabbitmq(items[0])
-        except Exception as e:
-            print(f"[Webhook Error] {str(e)}")
+                send_to_rabbitmq({
+                    "action": "webhook_update",
+                    "event": items[0]
+                })
+
+        elif state == "delete":
+            send_to_rabbitmq({
+                "action": "webhook_delete",
+                "resource_id": resource_id
+            })
+
+    except Exception as e:
+        print(f"[Webhook Error] {str(e)}")
 
     return '', 200
 
