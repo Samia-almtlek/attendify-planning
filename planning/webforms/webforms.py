@@ -15,6 +15,18 @@ DB_CONFIG = {
 def get_connection():
     return mysql.connector.connect(**DB_CONFIG)
 
+def get_user_info_by_email(conn, email):
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id, first_name, last_name FROM users WHERE email = %s", (email,))
+    result = cursor.fetchone()
+    cursor.close()
+    if result:
+        return {
+            "uid": result[0],
+            "full_name": f"{result[1]} {result[2]}"
+        }
+    return None
+
 @app.route('/')
 def home():
     return '''
@@ -37,29 +49,69 @@ def create_event():
         end_date = request.form['end_date']
         start_time = request.form['start_time']
         end_time = request.form['end_time']
-        organizer_name = request.form['organizer_name']
-        organizer_uid = request.form['organizer_uid']
+        organizer_email = request.form['organizer_email']
         entrance_fee = request.form['entrance_fee']
 
+        # CHECK 1: empty fields
+        if not all([title, description, location, start_date, end_date, start_time, end_time, organizer_email, entrance_fee]):
+            return "<p>❌ Error: Alle velden zijn verplicht.</p><a href='/event'>Terug</a>"
+
+        # CHECK 2: entrance fee
+        try:
+            fee_value = float(entrance_fee)
+            if fee_value < 0:
+                raise ValueError()
+        except ValueError:
+            return "<p>❌ Ongeldige toegangsprijs. Moet een positief getal zijn.</p><a href='/event'>Terug</a>"
+
+        # CHECK 3: dates and times
+        try:
+            s_date = datetime.strptime(start_date, "%Y-%m-%d")
+            e_date = datetime.strptime(end_date, "%Y-%m-%d")
+            if s_date > e_date:
+                return "<p>❌ Startdatum mag niet na de einddatum liggen.</p><a href='/event'>Terug</a>"
+
+            if s_date == e_date and start_time >= end_time:
+                return "<p>❌ Op dezelfde dag moet starttijd vóór eindtijd liggen.</p><a href='/event'>Terug</a>"
+
+        except Exception as e:
+            return f"<p>❌ Fout in datum/tijd: {e}</p><a href='/event'>Terug</a>"
+
+        # Ophalen van organizer uid en naam
         conn = get_connection()
+        user_info = get_user_info_by_email(conn, organizer_email)
+
+        if user_info is None:
+            return f"<p>❌ Geen gebruiker gevonden met e-mail '{organizer_email}'</p><a href='/event'>Terug</a>"
+
+        organizer_uid = user_info['uid']
+        organizer_name = user_info['full_name']
+
+        # Insert into database
+        event_id = str(uuid.uuid4())
+        uid = "admin"  # Deze uid komt van de admin die het event aanmaakt, hardcoded hier
+
         cursor = conn.cursor()
         query = """
         INSERT INTO events (
             event_id, uid, title, description, location,
             start_date, end_date, start_time, end_time,
-            organizer_name, organizer_uid, entrance_fee
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            organizer_uid, entrance_fee
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(query, (
             event_id, uid, title, description, location,
             start_date, end_date, start_time, end_time,
-            organizer_name, organizer_uid, entrance_fee
+            organizer_uid, fee_value
         ))
         conn.commit()
         cursor.close()
         conn.close()
 
-        return f"<p>✅ Event '{title}' aangemaakt!</p><a href='/'>Terug</a>"
+        # Eventueel hier de logging XML aanmaken met organizer_name
+        # TODO: send_event_created_xml(event_id, title, ..., organizer_name, organizer_uid)
+
+        return f"<p>✅ Event '{title}' succesvol aangemaakt!</p><a href='/'>Terug naar home</a>"
 
     return render_template('event.html')
 
