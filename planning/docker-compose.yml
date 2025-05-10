@@ -88,7 +88,7 @@ services:
     command:
       - "sh"
       - "-c"
-      - "pip install pika &&  pip install mysql-connector-python && python3 /usr/local/bin/dbinit/usertable.py && python3 /usr/local/bin/dbinit/user_event_table.py"
+      - "pip install pika &&  pip install mysql-connector-python && python3 /usr/local/bin/dbinit/usertable.py && python3 /usr/local/bin/dbinit/user_event_table.py && python3 /usr/local/bin/dbinit/event_session.py"
     restart: on-failure
     profiles:
       - dbinit
