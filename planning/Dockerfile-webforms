@@ -1,10 +1,9 @@
 FROM python:3.11-slim
 
-WORKDIR /webforms/webforms
-
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+WORKDIR /app
 
 COPY . .
 
-CMD ["python", "webforms.py"]
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD ["python", "webfroms/webforms.py"]
