@@ -22,6 +22,8 @@ services:
       dockerfile: Dockerfile-webforms
     ports:
       - "30019:5000"
+    volumes:
+      - ./webforms:/usr/local/bin/webforms
     environment:
       - LOCAL_DB_HOST=db
       - LOCAL_DB_USER=root
