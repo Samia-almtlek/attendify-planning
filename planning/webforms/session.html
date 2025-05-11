@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Sessie Aanmaken</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
     <script>
         function validateForm(event) {
             const startTime = document.getElementById("start_time").value;
@@ -26,6 +27,7 @@
     </script>
 </head>
 <body>
+    <main>
     <h1>Sessie Aanmaken</h1>
     <form action="/session" method="post" onsubmit="return validateForm(event)">
         <label for="title">Titel sessie:</label><br>
@@ -67,5 +69,6 @@
 
         <button type="submit">Sessie aanmaken</button>
     </form>
+</main>
 </body>
 </html>

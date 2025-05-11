@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Create Event</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
     <script>
         function validateForm(event) {
             const startDate = new Date(document.getElementById("start_date").value);
@@ -41,6 +42,7 @@
     </script>
 </head>
 <body>
+    <main>
     <h1>Event Aanmaken</h1>
     <form action="/event" method="post" onsubmit="return validateForm(event)">
         <label for="title">Titel:</label><br>
@@ -72,5 +74,6 @@
 
         <button type="submit">Event aanmaken</button>
     </form>
+</main>
 </body>
 </html>
