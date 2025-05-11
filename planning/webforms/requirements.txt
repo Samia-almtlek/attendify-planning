@@ -5,3 +5,4 @@ python-dotenv
 pika
 flask_sqlalchemy
 mysql-connector-python
+bcrypt

@@ -45,10 +45,11 @@ def parse_message(message):
         last_name = user_elem.find('last_name').text
         email = user_elem.find('email').text
         title = user_elem.find('title').text
-        return operation, uid, first_name, last_name, email, title
+        password = user_elem.find('password').text  # <-- toegevoegd
+        return operation, uid, first_name, last_name, email, title, password
     except Exception as e:
         logging.error(f"Error parsing message: {e}")
-        return None, None, None, None, None, None
+        return None, None, None, None, None, None, None
 
 def user_id_exists(connection, uid):
     try:
@@ -63,15 +64,18 @@ def user_id_exists(connection, uid):
     finally:
         cursor.close()
 
-def create_user(connection, uid, first_name, last_name, email, title):
+def create_user(connection, uid, first_name, last_name, email, title, password):
     try:
         if user_id_exists(connection, uid):
             logging.warning(f"User ID {uid} already exists, skipping creation")
             return False
 
         cursor = connection.cursor()
-        query = "INSERT INTO users (user_id, first_name, last_name, email, title) VALUES (%s, %s, %s, %s, %s)"
-        cursor.execute(query, (uid, first_name, last_name, email, title))
+        query = """
+        INSERT INTO users (user_id, first_name, last_name, email, title, password)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(query, (uid, first_name, last_name, email, title, password))
         connection.commit()
         logging.info(f"User created: {email} with ID: {uid}")
         return True
@@ -82,11 +86,15 @@ def create_user(connection, uid, first_name, last_name, email, title):
         if 'cursor' in locals():
             cursor.close()
 
-def update_user(connection, uid, first_name, last_name, email, title):
+def update_user(connection, uid, first_name, last_name, email, title, password):
     try:
         cursor = connection.cursor()
-        query = "UPDATE users SET first_name=%s, last_name=%s, email=%s, title=%s WHERE user_id=%s"
-        cursor.execute(query, (first_name, last_name, email, title, uid))
+        query = """
+        UPDATE users
+        SET first_name=%s, last_name=%s, email=%s, title=%s, password=%s
+        WHERE user_id=%s
+        """
+        cursor.execute(query, (first_name, last_name, email, title, password, uid))
         if cursor.rowcount == 0:
             logging.warning(f"No user found with ID {uid} to update")
         else:
@@ -119,7 +127,7 @@ def delete_user(connection, uid):
             cursor.close()
 
 def callback(ch, method, properties, body):
-    operation, uid, first_name, last_name, email, title = parse_message(body)
+    operation, uid, first_name, last_name, email, title, password = parse_message(body)
     if operation is None:
         logging.error("Failed to parse message, acknowledging anyway")
         return
@@ -131,10 +139,10 @@ def callback(ch, method, properties, body):
 
     try:
         if operation == 'create':
-            create_user(connection_db, uid, first_name, last_name, email, title)
+            create_user(connection_db, uid, first_name, last_name, email, title, password)
 
         elif operation == 'update':
-            update_user(connection_db, uid, first_name, last_name, email, title)
+            update_user(connection_db, uid, first_name, last_name, email, title, password)
 
         elif operation == 'delete':
             delete_user(connection_db, uid)

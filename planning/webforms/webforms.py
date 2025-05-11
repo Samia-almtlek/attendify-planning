@@ -5,9 +5,13 @@ import uuid
 from datetime import datetime
 from flask import redirect, url_for
 from mysql.connector.errors import IntegrityError
+from flask import session, flash
+from functools import wraps
+import bcrypt
 
 
 app = Flask(__name__, template_folder='.')
+app.secret_key = 'sdfdssdfsdf'
 
 DB_CONFIG = {
     'host':     os.getenv('LOCAL_DB_HOST','db'),
@@ -28,11 +32,60 @@ def get_user_info_by_email(conn, email):
         return {'uid': row[0], 'first': row[1], 'last': row[2]}
     return None
 
+
 @app.route('/')
 def home():
     return redirect(url_for('create_event'))
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_email' not in session:
+            flash("Je moet eerst inloggen.")
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def check_bcrypt_hash(stored_hash, input_password):
+    return bcrypt.checkpw(input_password.encode(), stored_hash.encode())
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email    = request.form['email']
+        password = request.form['password']
+
+        conn = get_connection()
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not user:
+            return "<p>❌ Geen gebruiker gevonden.</p><a href='/login'>Terug</a>"
+
+        print(f"Hash uit DB: {user['password']}")  # DEBUG
+
+        if check_bcrypt_hash(user['password'], password):
+            session['user_email'] = user['email']
+            session['user_id'] = user['user_id']
+            return redirect(url_for('home'))
+        else:
+            return "<p>❌ Ongeldig wachtwoord.</p><a href='/login'>Probeer opnieuw</a>"
+
+
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
 @app.route('/event', methods=['GET','POST'])
+@login_required
 def create_event():
     if request.method=='POST':
         # 1. Lees form
@@ -75,7 +128,7 @@ def create_event():
         org_last = info['last']
 
         # 4. Insert event
-        eid = f"event{int(datetime.now().timestamp() * 1000)}"        
+        eid = f"GC{int(datetime.now().timestamp() * 1000)}"        
         cur = conn.cursor()
         cur.execute("""
           INSERT INTO events (
@@ -84,7 +137,7 @@ def create_event():
             organizer_uid, organizer_first_name, organizer_name, entrance_fee
           ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,(
-          eid, 'admin', title, desc, loc,
+          eid, eid, title, desc, loc,
           sd, ed, st, et,
           org_uid, org_first, org_last, fee
         ))
@@ -98,6 +151,7 @@ def create_event():
     return render_template('event.html')
 
 @app.route('/session', methods=['GET', 'POST'])
+@login_required
 def create_session():
     conn = get_connection()
 
@@ -109,8 +163,8 @@ def create_session():
 
     if request.method == 'POST':
         f = request.form
-        sid = f"sessie{int(datetime.now().timestamp() * 1000)}"        
-        uid  = 'admin'
+        sid = f"GC{int(datetime.now().timestamp() * 1000)}"        
+        uid  = f['event_id']
         eid  = f['event_id']
         title = f['title']
         desc  = f['description']
@@ -151,7 +205,9 @@ def create_session():
 
     conn.close()
     return render_template('session.html', events=events)
+
 @app.route('/event/update/<event_id>', methods=['GET', 'POST'])
+@login_required
 def update_event(event_id):
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
@@ -175,6 +231,7 @@ def update_event(event_id):
     return render_template("update_event.html", event=event)
 
 @app.route('/event/delete/<event_id>')
+@login_required
 def delete_event(event_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -191,6 +248,7 @@ def delete_event(event_id):
     return redirect(url_for('admin_events'))
 
 @app.route('/admin/events')
+@login_required
 def admin_events():
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
@@ -201,6 +259,7 @@ def admin_events():
     return render_template("admin_events.html", events=events)
 
 @app.route('/admin/sessions')
+@login_required
 def admin_sessions():
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
@@ -216,6 +275,7 @@ def admin_sessions():
     return render_template("admin_sessions.html", sessions=sessions)
 
 @app.route('/session/update/<session_id>', methods=['GET', 'POST'])
+@login_required
 def update_session(session_id):
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
@@ -242,6 +302,7 @@ def update_session(session_id):
     return render_template("update_session.html", session=session)
 
 @app.route('/session/delete/<session_id>')
+@login_required
 def delete_session(session_id):
     conn = get_connection()
     cur = conn.cursor()
