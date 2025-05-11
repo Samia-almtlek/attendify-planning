@@ -80,7 +80,7 @@ def create_event():
         org_last = info['last']
 
         # 4. Insert event
-        eid = str(uuid.uuid4())
+        eid = f"event{int(datetime.now().timestamp() * 1000)}"        
         cur = conn.cursor()
         cur.execute("""
           INSERT INTO events (
@@ -114,7 +114,7 @@ def create_session():
 
     if request.method == 'POST':
         f = request.form
-        sid  = str(uuid.uuid4())
+        sid = f"sessie{int(datetime.now().timestamp() * 1000)}"        
         uid  = 'admin'
         eid  = f['event_id']
         title = f['title']
