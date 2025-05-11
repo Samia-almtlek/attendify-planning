@@ -69,12 +69,27 @@ def delete_from_snapshot(conn, snapshot_table, id_field, row_id):
     cur.close()
 
 def remove_from_gcal(service, gcal_id):
+    print("🧪 [DEBUG] remove_from_gcal() called with:", gcal_id)
     if gcal_id:
         try:
             service.events().delete(calendarId=GCAL_EVENT_CALENDAR_ID, eventId=gcal_id).execute()
             print(f"🗑️  GCal event verwijderd: {gcal_id}")
         except Exception as e:
             print(f"⚠️  Verwijderen uit GCal mislukt voor {gcal_id}: {e}")
+    else:
+        print("⚠️  Geen gcal_id opgegeven, dus niets verwijderd.")
+
+def get_gcal_id(conn, snapshot_table, id_field, row_id):
+    cur = conn.cursor()
+    try:
+        cur.execute(f"SELECT gcal_id FROM {snapshot_table} WHERE {id_field} = %s", (row_id,))
+        row = cur.fetchone()
+        return row[0] if row else None
+    except Exception as e:
+        print(f"⚠️  Fout bij ophalen gcal_id uit snapshot: {e}")
+        return None
+    finally:
+        cur.close()
 
 # -------------------- SYNC EVENTS -------------------- #
 
@@ -98,13 +113,16 @@ def sync_events(service, conn):
                         body=build_gcal_payload(row)).execute()["id"]
                     mark_synced(conn, "events", "event_id", eid, gcal_id)
                 else:
+                    gcal_id = row["gcal_id"]
                     service.events().update(
                         calendarId=GCAL_EVENT_CALENDAR_ID,
-                        eventId=row["gcal_id"],
+                        eventId=gcal_id,
                         body=build_gcal_payload(row)).execute()
+
+
                 print(f"✅ Event '{eid}' gesynchroniseerd ({operation})")
                 publish_event(row, operation)
-                update_snapshot(conn, "event_snapshots", "event_id", eid, current_hash)
+                update_snapshot(conn, "event_snapshots", "event_id", eid, current_hash, gcal_id)
             except Exception as e:
                 print(f"❌ Event '{eid}' fout bij sync: {e}")
 
@@ -112,7 +130,9 @@ def sync_events(service, conn):
     for snapshot_id in snapshot_map:
         if snapshot_id not in current_ids:
             print(f"🗑️  Event '{snapshot_id}' verwijderd")
-            remove_from_gcal(service, get_gcal_id(conn, "events", "event_id", snapshot_id))
+            gcal_id = get_gcal_id(conn, "event_snapshots", "event_id", snapshot_id)
+            print(f"📎 GCal ID voor delete: {gcal_id}")
+            remove_from_gcal(service, gcal_id)
             publish_event({"event_id": snapshot_id}, operation="delete")
             delete_from_snapshot(conn, "event_snapshots", "event_id", snapshot_id)
 
@@ -141,12 +161,6 @@ def mark_synced(conn, table, id_field, row_id, gcal_id):
     conn.commit()
     cur.close()
 
-def get_gcal_id(conn, table, id_field, row_id):
-    cur = conn.cursor()
-    cur.execute(f"SELECT gcal_id FROM {table} WHERE {id_field} = %s", (row_id,))
-    row = cur.fetchone()
-    cur.close()
-    return row[0] if row else None
 
 # -------------------- SYNC SESSIONS -------------------- #
 
@@ -170,20 +184,25 @@ def sync_sessions(service, conn):
                         body=build_gcal_payload_session(row)).execute()["id"]
                     mark_synced(conn, "sessions", "session_id", sid, gcal_id)
                 else:
+                    gcal_id = row["gcal_id"]
                     service.events().update(
                         calendarId=GCAL_EVENT_CALENDAR_ID,
-                        eventId=row["gcal_id"],
+                        eventId=gcal_id,
                         body=build_gcal_payload_session(row)).execute()
+
                 print(f"✅ Sessie '{sid}' gesynchroniseerd ({operation})")
                 publish_session(row, operation)
-                update_snapshot(conn, "session_snapshots", "session_id", sid, current_hash)
+                update_snapshot(conn, "session_snapshots", "session_id", sid, current_hash, gcal_id)
+
             except Exception as e:
                 print(f"❌ Sessie '{sid}' fout bij sync: {e}")
 
     for snapshot_id in snapshot_map:
         if snapshot_id not in current_ids:
             print(f"🗑️  Sessie '{snapshot_id}' verwijderd")
-            remove_from_gcal(service, get_gcal_id(conn, "sessions", "session_id", snapshot_id))
+            gcal_id = get_gcal_id(conn, "session_snapshots", "session_id", snapshot_id)
+            print(f"📎 GCal ID voor delete: {gcal_id}")
+            remove_from_gcal(service, gcal_id)
             publish_session({"session_id": snapshot_id}, operation="delete")
             delete_from_snapshot(conn, "session_snapshots", "session_id", snapshot_id)
 
