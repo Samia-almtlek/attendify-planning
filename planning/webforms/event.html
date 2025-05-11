@@ -26,13 +26,12 @@
     <label for="end_time">Eindtijd:</label>
     <input type="time" id="end_time" name="end_time" required>
 
-    <label for="organizer_email">E-mail organisator:</label>
-    <input type="email" id="organizer_email" name="organizer_email" required>
-
     <label for="entrance_fee">Toegangsprijs (€):</label>
     <input type="number" id="entrance_fee" name="entrance_fee" step="0.01" min="0" required>
 
     <button type="submit">Event aanmaken</button>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
 </form>
 
 <script>
@@ -42,13 +41,6 @@
         const startTime = document.getElementById("start_time").value;
         const endTime = document.getElementById("end_time").value;
         const entranceFee = parseFloat(document.getElementById("entrance_fee").value);
-        const email = document.getElementById("organizer_email").value;
-
-        if (!email.includes("@")) {
-            alert("❌ Ongeldig e-mailadres voor organisator.");
-            event.preventDefault();
-            return false;
-        }
 
         if (startDate > endDate) {
             alert("❌ Startdatum mag niet na de einddatum liggen.");

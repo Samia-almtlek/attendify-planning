@@ -43,6 +43,8 @@
     <textarea id="speaker_bio" name="speaker_bio" required></textarea>
 
     <button type="submit">Sessie aanmaken</button>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
 </form>
 
 <script>

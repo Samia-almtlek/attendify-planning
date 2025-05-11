@@ -8,16 +8,28 @@ from mysql.connector.errors import IntegrityError
 from flask import session, flash
 from functools import wraps
 import bcrypt
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
+
+
+
 
 
 app = Flask(__name__, template_folder='.')
-app.secret_key = 'sdfdssdfsdf'
+app.secret_key = os.getenv('APP_SECRET_KEY')
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"]  # globale limieten
+)
+csrf = CSRFProtect(app)
 
 DB_CONFIG = {
-    'host':     os.getenv('LOCAL_DB_HOST','db'),
-    'user':     os.getenv('LOCAL_DB_USER','root'),
-    'password': os.getenv('LOCAL_DB_PASSWORD','root'),
-    'database': os.getenv('LOCAL_DB_NAME','planning')
+    'host':     os.getenv('LOCAL_DB_HOST'),
+    'user':     os.getenv('LOCAL_DB_USER'),
+    'password': os.getenv('LOCAL_DB_PASSWORD'),
+    'database': os.getenv('LOCAL_DB_NAME')
 }
 
 def get_connection():
@@ -84,11 +96,10 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-@app.route('/event', methods=['GET','POST'])
+@app.route('/event', methods=['GET', 'POST'])
 @login_required
 def create_event():
-    if request.method=='POST':
-        # 1. Lees form
+    if request.method == 'POST':
         f = request.form
         title   = f['title']
         desc    = f['description']
@@ -97,37 +108,38 @@ def create_event():
         ed      = f['end_date']
         st      = f['start_time']
         et      = f['end_time']
-        email   = f['organizer_email']
         fee_raw = f['entrance_fee']
 
-        # 2. Validatie
-        if not all([title,desc,loc,sd,ed,st,et,email,fee_raw]):
+        # Validatie
+        if not all([title, desc, loc, sd, ed, st, et, fee_raw]):
             return "<p>❌ Alle velden verplicht.</p><a href='/event'>Terug</a>"
+
         try:
             fee = float(fee_raw)
-            if fee<0: raise ValueError()
+            if fee < 0: raise ValueError()
         except:
             return "<p>❌ Ongeldige prijs.</p><a href='/event'>Terug</a>"
+
         try:
-            d1 = datetime.strptime(sd,"%Y-%m-%d")
-            d2 = datetime.strptime(ed,"%Y-%m-%d")
-            if d1>d2 or (d1==d2 and st>=et):
+            d1 = datetime.strptime(sd, "%Y-%m-%d")
+            d2 = datetime.strptime(ed, "%Y-%m-%d")
+            if d1 > d2 or (d1 == d2 and st >= et):
                 raise ValueError()
         except:
             return "<p>❌ Fout in datum/tijd.</p><a href='/event'>Terug</a>"
 
-        # 3. Organisator uit DB
+        # Haal ingelogde gebruiker op uit session
         conn = get_connection()
+        email = session['user_email']
         info = get_user_info_by_email(conn, email)
         if not info:
             conn.close()
-            return f"<p>❌ Geen gebruiker met e-mail {email}.</p><a href='/event'>Terug</a>"
+            return "<p>❌ Gebruiker niet gevonden in database.</p><a href='/event'>Terug</a>"
 
         org_uid  = info['uid']
         org_first= info['first']
         org_last = info['last']
 
-        # 4. Insert event
         eid = f"GC{int(datetime.now().timestamp() * 1000)}"        
         cur = conn.cursor()
         cur.execute("""
@@ -136,7 +148,7 @@ def create_event():
             start_date, end_date, start_time, end_time,
             organizer_uid, organizer_first_name, organizer_name, entrance_fee
           ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """,(
+        """, (
           eid, eid, title, desc, loc,
           sd, ed, st, et,
           org_uid, org_first, org_last, fee
@@ -145,7 +157,6 @@ def create_event():
         cur.close()
         conn.close()
 
-        # TODO: XML-log msg hier met org_first + org_last
         return f"<p>✅ Event '{title}' aangemaakt!</p><a href='/'>Home</a>"
 
     return render_template('event.html')
@@ -211,19 +222,24 @@ def create_session():
 def update_event(event_id):
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
+
     if request.method == 'POST':
         f = request.form
         cur.execute("""
             UPDATE events SET title=%s, description=%s, location=%s,
             start_date=%s, end_date=%s, start_time=%s, end_time=%s,
-            entrance_fee=%s WHERE event_id=%s
-        """, (f['title'], f['description'], f['location'], f['start_date'],
-              f['end_date'], f['start_time'], f['end_time'], f['entrance_fee'], event_id))
+            entrance_fee=%s
+            WHERE event_id=%s
+        """, (
+            f['title'], f['description'], f['location'], f['start_date'],
+            f['end_date'], f['start_time'], f['end_time'], f['entrance_fee'],
+            event_id
+        ))
         conn.commit()
         cur.close()
         conn.close()
         return redirect(url_for('admin_events'))
-    
+
     cur.execute("SELECT * FROM events WHERE event_id = %s", (event_id,))
     event = cur.fetchone()
     cur.close()

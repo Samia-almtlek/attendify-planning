@@ -37,5 +37,7 @@
     <textarea name="speaker_bio" required>{{ session.speaker_bio }}</textarea>
 
     <button type="submit">Wijzigingen opslaan</button>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
 </form>
 {% endblock %}
