@@ -174,3 +174,20 @@ services:
     networks:
       - planning_net
       - attendify_net
+
+  synchronizer:
+    image: python:3.9
+    env_file: .env
+    volumes:
+      - ./synchronizer:/usr/local/bin/synchronizer
+      - ./service_account.json:/app/service_account.json
+    command:
+      - "sh"
+      - "-c"
+      - "pip install mysql-connector-python google-api-python-client google-auth-httplib2 google-auth-oauthlib && python3 /usr/local/bin/synchronizer/sync.py"
+    restart: always
+    depends_on:
+      - db
+    networks:
+      - planning_net
+      - attendify_net

@@ -3,6 +3,8 @@ import mysql.connector
 import os
 import uuid
 from datetime import datetime
+from flask import redirect, url_for
+
 
 app = Flask(__name__, template_folder='.')
 
@@ -100,12 +102,61 @@ def create_event():
 
     return render_template('event.html')
 
-@app.route('/session', methods=['GET','POST'])
+@app.route('/session', methods=['GET', 'POST'])
 def create_session():
-    if request.method=='POST':
-        # je bestaande session-logic…
-        pass
-    return render_template('session.html')
+    conn = get_connection()
+
+    # Haal alle events op voor de dropdown
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT event_id, title FROM events ORDER BY start_date")
+    events = cursor.fetchall()
+    cursor.close()
+
+    if request.method == 'POST':
+        f = request.form
+        sid  = str(uuid.uuid4())
+        uid  = 'admin'
+        eid  = f['event_id']
+        title = f['title']
+        desc  = f['description']
+        date  = f['date']
+        stime = f['start_time']
+        etime = f['end_time']
+        loc   = f['location']
+        max_a = f['max_attendees']
+        sp_fn = f['speaker_first_name']
+        sp_ln = f['speaker_name']
+        bio   = f['speaker_bio']
+
+        if not all([eid, title, desc, date, stime, etime, loc, max_a, sp_fn, sp_ln, bio]):
+            return "<p>❌ Alle velden zijn verplicht.</p><a href='/session'>Terug</a>"
+
+        try:
+            if stime >= etime: raise ValueError()
+            max_int = int(max_a)
+        except:
+            return "<p>❌ Ongeldige tijd of max aantal deelnemers.</p><a href='/session'>Terug</a>"
+
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO sessions (
+                session_id, uid, event_id, title, description,
+                date, start_time, end_time, location,
+                max_attendees, speaker_first_name, speaker_name, speaker_bio
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            sid, uid, eid, title, desc,
+            date, stime, etime, loc,
+            max_int, sp_fn, sp_ln, bio
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return f"<p>✅ Sessie '{title}' aangemaakt!</p><a href='/'>Terug</a>"
+
+    conn.close()
+    return render_template('session.html', events=events)
+
 
 if __name__=='__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)

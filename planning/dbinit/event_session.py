@@ -69,6 +69,7 @@ def create_session_table(conn):
         "end_time":       "TIME",
         "location":       "VARCHAR(255)",
         "max_attendees":  "INT",
+        "speaker_first_name":   "VARCHAR(255)",
         "speaker_name":   "VARCHAR(255)",
         "speaker_bio":    "TEXT",
         "gcal_id":        "VARCHAR(255)",
