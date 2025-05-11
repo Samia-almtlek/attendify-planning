@@ -1,9 +1,17 @@
+import sys
 import os
 import time
 import mysql.connector
+import json
+import hashlib
 from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+
+sys.path.append('/usr/local/bin')
+from producer.producer import publish_event, publish_session
+
+# -------------------- CONFIG -------------------- #
 
 DB_CONFIG = {
     'host': os.getenv('LOCAL_DB_HOST', 'db'),
@@ -16,48 +24,185 @@ SCOPES = ['https://www.googleapis.com/auth/calendar']
 SERVICE_ACCOUNT_FILE = 'app/service_account.json'
 GCAL_EVENT_CALENDAR_ID = os.getenv('GOOGLE_CALENDAR_ID')
 
+# -------------------- HELPERS -------------------- #
 
 def get_gcal_service():
     credentials = service_account.Credentials.from_service_account_file(
         SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     return build('calendar', 'v3', credentials=credentials)
 
-def fetch_unsynced_events(conn):
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM events WHERE synced = 0")
-    rows = cursor.fetchall()
-    cursor.close()
+def hash_row(row):
+    """Genereert een SHA256 hash van een dictionary (event/session) zonder gcal_id, synced, synced_at."""
+    relevant = {k: v for k, v in row.items() if k not in ('gcal_id', 'synced', 'synced_at')}
+    json_string = json.dumps(relevant, sort_keys=True, default=str)
+    return hashlib.sha256(json_string.encode()).hexdigest()
+
+def fetch_all(conn, table):
+    cur = conn.cursor(dictionary=True)
+    cur.execute(f"SELECT * FROM {table}")
+    rows = cur.fetchall()
+    cur.close()
     return rows
 
-def mark_as_synced(conn, event_id, gcal_id):
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE events
-        SET synced = 1, synced_at = NOW(), gcal_id = %s
-        WHERE event_id = %s
-    """, (gcal_id, event_id))
+def fetch_snapshot_map(conn, snapshot_table, id_field):
+    cur = conn.cursor(dictionary=True)
+    cur.execute(f"SELECT {id_field}, content_hash FROM {snapshot_table}")
+    result = {row[id_field]: row["content_hash"] for row in cur.fetchall()}
+    cur.close()
+    return result
+
+def update_snapshot(conn, snapshot_table, id_field, row_id, content_hash, gcal_id):
+    cur = conn.cursor()
+    cur.execute(f"""
+        INSERT INTO {snapshot_table} ({id_field}, content_hash, last_seen, gcal_id)
+        VALUES (%s, %s, NOW(), %s)
+        ON DUPLICATE KEY UPDATE content_hash = VALUES(content_hash), last_seen = NOW(), gcal_id = VALUES(gcal_id)
+    """, (row_id, content_hash, gcal_id))
     conn.commit()
-    cursor.close()
-
-def sync_event_to_gcal(service, event):
-    start_dt = f"{event['start_date']}T{str(event['start_time'])}"
-    end_dt   = f"{event['end_date']}T{str(event['end_time'])}"
+    cur.close()
 
 
-    gcal_event = {
-        'summary': event.get('title') or 'Geen titel',
-        'location': event.get('location') or '',
-        'description': event.get('description') or '',
-        'start': {'dateTime': start_dt, 'timeZone': 'Europe/Brussels'},
-        'end': {'dateTime': end_dt, 'timeZone': 'Europe/Brussels'}
+def delete_from_snapshot(conn, snapshot_table, id_field, row_id):
+    cur = conn.cursor()
+    cur.execute(f"DELETE FROM {snapshot_table} WHERE {id_field} = %s", (row_id,))
+    conn.commit()
+    cur.close()
+
+def remove_from_gcal(service, gcal_id):
+    if gcal_id:
+        try:
+            service.events().delete(calendarId=GCAL_EVENT_CALENDAR_ID, eventId=gcal_id).execute()
+            print(f"🗑️  GCal event verwijderd: {gcal_id}")
+        except Exception as e:
+            print(f"⚠️  Verwijderen uit GCal mislukt voor {gcal_id}: {e}")
+
+# -------------------- SYNC EVENTS -------------------- #
+
+def sync_events(service, conn):
+    current_rows = fetch_all(conn, "events")
+    snapshot_map = fetch_snapshot_map(conn, "event_snapshots", "event_id")
+    current_ids = set()
+    
+    for row in current_rows:
+        eid = row["event_id"]
+        current_ids.add(eid)
+        current_hash = hash_row(row)
+        old_hash = snapshot_map.get(eid)
+
+        if old_hash != current_hash:
+            operation = "create" if old_hash is None else "update"
+            try:
+                if operation == "create":
+                    gcal_id = service.events().insert(
+                        calendarId=GCAL_EVENT_CALENDAR_ID,
+                        body=build_gcal_payload(row)).execute()["id"]
+                    mark_synced(conn, "events", "event_id", eid, gcal_id)
+                else:
+                    service.events().update(
+                        calendarId=GCAL_EVENT_CALENDAR_ID,
+                        eventId=row["gcal_id"],
+                        body=build_gcal_payload(row)).execute()
+                print(f"✅ Event '{eid}' gesynchroniseerd ({operation})")
+                publish_event(row, operation)
+                update_snapshot(conn, "event_snapshots", "event_id", eid, current_hash)
+            except Exception as e:
+                print(f"❌ Event '{eid}' fout bij sync: {e}")
+
+    # Detect deletes
+    for snapshot_id in snapshot_map:
+        if snapshot_id not in current_ids:
+            print(f"🗑️  Event '{snapshot_id}' verwijderd")
+            remove_from_gcal(service, get_gcal_id(conn, "events", "event_id", snapshot_id))
+            publish_event({"event_id": snapshot_id}, operation="delete")
+            delete_from_snapshot(conn, "event_snapshots", "event_id", snapshot_id)
+
+def build_gcal_payload(row):
+    return {
+        "summary": row["title"],
+        "location": row["location"],
+        "description": row["description"],
+        "start": {
+            "dateTime": f"{row['start_date']}T{row['start_time']}",
+            "timeZone": "Europe/Brussels"
+        },
+        "end": {
+            "dateTime": f"{row['end_date']}T{row['end_time']}",
+            "timeZone": "Europe/Brussels"
+        }
     }
 
-    import json
-    print("📤 Payload naar Google Calendar API:")
-    print(json.dumps(gcal_event, indent=2))
+def mark_synced(conn, table, id_field, row_id, gcal_id):
+    cur = conn.cursor()
+    cur.execute(f"""
+        UPDATE {table}
+        SET synced = 1, synced_at = NOW(), gcal_id = %s
+        WHERE {id_field} = %s
+    """, (gcal_id, row_id))
+    conn.commit()
+    cur.close()
 
-    created_event = service.events().insert(calendarId=GCAL_EVENT_CALENDAR_ID, body=gcal_event).execute()
-    return created_event.get('id')
+def get_gcal_id(conn, table, id_field, row_id):
+    cur = conn.cursor()
+    cur.execute(f"SELECT gcal_id FROM {table} WHERE {id_field} = %s", (row_id,))
+    row = cur.fetchone()
+    cur.close()
+    return row[0] if row else None
+
+# -------------------- SYNC SESSIONS -------------------- #
+
+def sync_sessions(service, conn):
+    current_rows = fetch_all(conn, "sessions")
+    snapshot_map = fetch_snapshot_map(conn, "session_snapshots", "session_id")
+    current_ids = set()
+
+    for row in current_rows:
+        sid = row["session_id"]
+        current_ids.add(sid)
+        current_hash = hash_row(row)
+        old_hash = snapshot_map.get(sid)
+
+        if old_hash != current_hash:
+            operation = "create" if old_hash is None else "update"
+            try:
+                if operation == "create":
+                    gcal_id = service.events().insert(
+                        calendarId=GCAL_EVENT_CALENDAR_ID,
+                        body=build_gcal_payload_session(row)).execute()["id"]
+                    mark_synced(conn, "sessions", "session_id", sid, gcal_id)
+                else:
+                    service.events().update(
+                        calendarId=GCAL_EVENT_CALENDAR_ID,
+                        eventId=row["gcal_id"],
+                        body=build_gcal_payload_session(row)).execute()
+                print(f"✅ Sessie '{sid}' gesynchroniseerd ({operation})")
+                publish_session(row, operation)
+                update_snapshot(conn, "session_snapshots", "session_id", sid, current_hash)
+            except Exception as e:
+                print(f"❌ Sessie '{sid}' fout bij sync: {e}")
+
+    for snapshot_id in snapshot_map:
+        if snapshot_id not in current_ids:
+            print(f"🗑️  Sessie '{snapshot_id}' verwijderd")
+            remove_from_gcal(service, get_gcal_id(conn, "sessions", "session_id", snapshot_id))
+            publish_session({"session_id": snapshot_id}, operation="delete")
+            delete_from_snapshot(conn, "session_snapshots", "session_id", snapshot_id)
+
+def build_gcal_payload_session(row):
+    return {
+        "summary": row["title"],
+        "location": row["location"],
+        "description": row["description"],
+        "start": {
+            "dateTime": f"{row['date']}T{row['start_time']}",
+            "timeZone": "Europe/Brussels"
+        },
+        "end": {
+            "dateTime": f"{row['date']}T{row['end_time']}",
+            "timeZone": "Europe/Brussels"
+        }
+    }
+
+# -------------------- MAIN LOOP -------------------- #
 
 def main_loop():
     print("🌀 Synchronisator gestart...")
@@ -66,20 +211,14 @@ def main_loop():
     while True:
         try:
             conn = mysql.connector.connect(**DB_CONFIG)
-            print(f"✅ DB connectie gelukt")
+            print("✅ Verbonden met DB")
 
-            events = fetch_unsynced_events(conn)
+            sync_events(service, conn)
+            sync_sessions(service, conn)
 
-            for event in events:
-                try:
-                    gcal_id = sync_event_to_gcal(service, event)
-                    mark_as_synced(conn, event['event_id'], gcal_id)
-                    print(f"✅ Event '{event['title']}' gesynchroniseerd naar Google Calendar (ID: {gcal_id})")
-                except Exception as e:
-                    print(f"❌ Fout bij synchroniseren van event '{event['title']}': {e}")
             conn.close()
         except Exception as e:
-            print(f"❗ DB connectie probleem: {e}")
+            print(f"❗ Fout bij verbinding of synchronisatie: {e}")
 
         time.sleep(5)
 
