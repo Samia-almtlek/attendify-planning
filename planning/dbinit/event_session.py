@@ -79,10 +79,33 @@ def create_session_table(conn):
     fks = [{"column":"event_id","ref_table":"events","ref_column":"event_id"}]
     create_or_update_table(conn, "sessions", cols, fks)
 
+def create_event_snapshot_table(conn):
+    cols = {
+        "event_id": "VARCHAR(50) PRIMARY KEY",
+        "content_hash": "VARCHAR(64)",
+        "gcal_id": "VARCHAR(255)",
+        "last_seen": "TIMESTAMP"
+    }
+    create_or_update_table(conn, "event_snapshots", cols)
+
+
+def create_session_snapshot_table(conn):
+    cols = {
+        "session_id": "VARCHAR(50) PRIMARY KEY",
+        "content_hash": "VARCHAR(64)",
+        "gcal_id": "VARCHAR(255)",
+        "last_seen": "TIMESTAMP"
+    }
+    create_or_update_table(conn, "session_snapshots", cols)
+
+
+
 def main():
     conn = create_connection()
     if not conn:
         return
+    create_event_snapshot_table(conn)     
+    create_session_snapshot_table(conn) 
     create_event_table(conn)
     create_session_table(conn)
     conn.close()
