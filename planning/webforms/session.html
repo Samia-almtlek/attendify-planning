@@ -1,74 +1,69 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Sessie Aanmaken</title>
-    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
-    <script>
-        function validateForm(event) {
-            const startTime = document.getElementById("start_time").value;
-            const endTime = document.getElementById("end_time").value;
-            const maxAttendees = parseInt(document.getElementById("max_attendees").value);
+{% extends "base.html" %}
 
-            if (startTime >= endTime) {
-                alert("❌ Starttijd moet vóór de eindtijd liggen.");
-                event.preventDefault();
-                return false;
-            }
+{% block title %}Sessie Aanmaken{% endblock %}
 
-            if (isNaN(maxAttendees) || maxAttendees < 1) {
-                alert("❌ Max aantal deelnemers moet een positief getal zijn.");
-                event.preventDefault();
-                return false;
-            }
+{% block content %}
+<h1>Sessie Aanmaken</h1>
+<form action="/session" method="post" onsubmit="return validateForm(event)">
+    <label for="title">Titel sessie:</label>
+    <input type="text" id="title" name="title" required>
 
-            return true;
+    <label for="description">Beschrijving:</label>
+    <textarea id="description" name="description" required></textarea>
+
+    <label for="event_id">Kies Event:</label>
+    <select id="event_id" name="event_id" required>
+        {% for event in events %}
+            <option value="{{ event.event_id }}">{{ event.title }}</option>
+        {% endfor %}
+    </select>
+
+    <label for="date">Datum:</label>
+    <input type="date" id="date" name="date" required>
+
+    <label for="start_time">Starttijd:</label>
+    <input type="time" id="start_time" name="start_time" required>
+
+    <label for="end_time">Eindtijd:</label>
+    <input type="time" id="end_time" name="end_time" required>
+
+    <label for="location">Locatie:</label>
+    <input type="text" id="location" name="location" required>
+
+    <label for="max_attendees">Max aantal deelnemers:</label>
+    <input type="number" id="max_attendees" name="max_attendees" min="1" required>
+
+    <label for="speaker_first_name">Voornaam spreker:</label>
+    <input type="text" id="speaker_first_name" name="speaker_first_name" required>
+
+    <label for="speaker_name">Achternaam spreker:</label>
+    <input type="text" id="speaker_name" name="speaker_name" required>
+
+    <label for="speaker_bio">Bio spreker:</label>
+    <textarea id="speaker_bio" name="speaker_bio" required></textarea>
+
+    <button type="submit">Sessie aanmaken</button>
+</form>
+
+<script>
+    function validateForm(event) {
+        const startTime = document.getElementById("start_time").value;
+        const endTime = document.getElementById("end_time").value;
+        const maxAttendees = parseInt(document.getElementById("max_attendees").value);
+
+        if (startTime >= endTime) {
+            alert("❌ Starttijd moet vóór de eindtijd liggen.");
+            event.preventDefault();
+            return false;
         }
-    </script>
-</head>
-<body>
-    <main>
-    <h1>Sessie Aanmaken</h1>
-    <form action="/session" method="post" onsubmit="return validateForm(event)">
-        <label for="title">Titel sessie:</label><br>
-        <input type="text" id="title" name="title" required><br><br>
 
-        <label for="description">Beschrijving:</label><br>
-        <textarea id="description" name="description" required></textarea><br><br>
+        if (isNaN(maxAttendees) || maxAttendees < 1) {
+            alert("❌ Max aantal deelnemers moet een positief getal zijn.");
+            event.preventDefault();
+            return false;
+        }
 
-        <label for="event_id">Kies Event:</label><br>
-        <select id="event_id" name="event_id" required>
-            {% for event in events %}
-                <option value="{{ event.event_id }}">{{ event.title }}</option>
-            {% endfor %}
-        </select><br><br>
-
-        <label for="date">Datum:</label><br>
-        <input type="date" id="date" name="date" required><br><br>
-
-        <label for="start_time">Starttijd:</label><br>
-        <input type="time" id="start_time" name="start_time" required><br><br>
-
-        <label for="end_time">Eindtijd:</label><br>
-        <input type="time" id="end_time" name="end_time" required><br><br>
-
-        <label for="location">Locatie:</label><br>
-        <input type="text" id="location" name="location" required><br><br>
-
-        <label for="max_attendees">Max aantal deelnemers:</label><br>
-        <input type="number" id="max_attendees" name="max_attendees" min="1" required><br><br>
-
-        <label for="speaker_first_name">Voornaam spreker:</label><br>
-        <input type="text" id="speaker_first_name" name="speaker_first_name" required><br><br>
-
-        <label for="speaker_name">Achternaam spreker:</label><br>
-        <input type="text" id="speaker_name" name="speaker_name" required><br><br>
-
-        <label for="speaker_bio">Bio spreker:</label><br>
-        <textarea id="speaker_bio" name="speaker_bio" required></textarea><br><br>
-
-        <button type="submit">Sessie aanmaken</button>
-    </form>
-</main>
-</body>
-</html>
+        return true;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Event aanpassen{% endblock %}
+
+{% block content %}
+<h1>✏️ Event aanpassen</h1>
+
+<form method="POST">
+    Titel:<br>
+    <input type="text" name="title" value="{{ event.title }}"><br><br>
+
+    Beschrijving:<br>
+    <textarea name="description">{{ event.description }}</textarea><br><br>
+
+    Locatie:<br>
+    <input type="text" name="location" value="{{ event.location }}"><br><br>
+
+    Startdatum:<br>
+    <input type="date" name="start_date" value="{{ event.start_date }}"><br><br>
+
+    Einddatum:<br>
+    <input type="date" name="end_date" value="{{ event.end_date }}"><br><br>
+
+    Starttijd:<br>
+    <input type="time" name="start_time" value="{{ event.start_time }}"><br><br>
+
+    Eindtijd:<br>
+    <input type="time" name="end_time" value="{{ event.end_time }}"><br><br>
+
+    Toegangsprijs (€):<br>
+    <input type="number" step="0.01" name="entrance_fee" value="{{ event.entrance_fee }}"><br><br>
+
+    <input type="submit" value="Wijzigingen opslaan">
+</form>
+{% endblock %}

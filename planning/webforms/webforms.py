@@ -4,6 +4,7 @@ import os
 import uuid
 from datetime import datetime
 from flask import redirect, url_for
+from mysql.connector.errors import IntegrityError
 
 
 app = Flask(__name__, template_folder='.')
@@ -29,13 +30,7 @@ def get_user_info_by_email(conn, email):
 
 @app.route('/')
 def home():
-    return '''
-    <h1>Planning Webforms</h1>
-    <ul>
-      <li><a href="/event">Event aanmaken</a></li>
-      <li><a href="/session">Sessie aanmaken</a></li>
-    </ul>
-    '''
+    return redirect(url_for('create_event'))
 
 @app.route('/event', methods=['GET','POST'])
 def create_event():
@@ -156,7 +151,105 @@ def create_session():
 
     conn.close()
     return render_template('session.html', events=events)
+@app.route('/event/update/<event_id>', methods=['GET', 'POST'])
+def update_event(event_id):
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    if request.method == 'POST':
+        f = request.form
+        cur.execute("""
+            UPDATE events SET title=%s, description=%s, location=%s,
+            start_date=%s, end_date=%s, start_time=%s, end_time=%s,
+            entrance_fee=%s WHERE event_id=%s
+        """, (f['title'], f['description'], f['location'], f['start_date'],
+              f['end_date'], f['start_time'], f['end_time'], f['entrance_fee'], event_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for('admin_events'))
+    
+    cur.execute("SELECT * FROM events WHERE event_id = %s", (event_id,))
+    event = cur.fetchone()
+    cur.close()
+    conn.close()
+    return render_template("update_event.html", event=event)
 
+@app.route('/event/delete/<event_id>')
+def delete_event(event_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM events WHERE event_id = %s", (event_id,))
+        conn.commit()
+    except IntegrityError:
+        # Als er gekoppelde sessies zijn
+        cur.close()
+        conn.close()
+        return "<p>❌ Kan event niet verwijderen: verwijder eerst de bijhorende sessies.</p><a href='/admin/events'>Terug</a>"
+    cur.close()
+    conn.close()
+    return redirect(url_for('admin_events'))
+
+@app.route('/admin/events')
+def admin_events():
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT * FROM events ORDER BY start_date")
+    events = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("admin_events.html", events=events)
+
+@app.route('/admin/sessions')
+def admin_sessions():
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT s.*, e.title AS event_title
+        FROM sessions s
+        JOIN events e ON s.event_id = e.event_id
+        ORDER BY s.date
+    """)
+    sessions = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("admin_sessions.html", sessions=sessions)
+
+@app.route('/session/update/<session_id>', methods=['GET', 'POST'])
+def update_session(session_id):
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    if request.method == 'POST':
+        f = request.form
+        cur.execute("""
+            UPDATE sessions SET title=%s, description=%s, date=%s, start_time=%s, end_time=%s,
+            location=%s, max_attendees=%s, speaker_first_name=%s, speaker_name=%s, speaker_bio=%s
+            WHERE session_id=%s
+        """, (
+            f['title'], f['description'], f['date'], f['start_time'], f['end_time'],
+            f['location'], f['max_attendees'], f['speaker_first_name'], f['speaker_name'],
+            f['speaker_bio'], session_id
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for('admin_sessions'))
+
+    cur.execute("SELECT * FROM sessions WHERE session_id = %s", (session_id,))
+    session = cur.fetchone()
+    cur.close()
+    conn.close()
+    return render_template("update_session.html", session=session)
+
+@app.route('/session/delete/<session_id>')
+def delete_session(session_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM sessions WHERE session_id = %s", (session_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('admin_sessions'))
 
 if __name__=='__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Sessie aanpassen{% endblock %}
+
+{% block content %}
+<h1>✏️ Sessie aanpassen</h1>
+
+<form method="POST">
+    <label for="title">Titel sessie:</label>
+    <input type="text" name="title" value="{{ session.title }}" required>
+
+    <label for="description">Beschrijving:</label>
+    <textarea name="description" required>{{ session.description }}</textarea>
+
+    <label for="date">Datum:</label>
+    <input type="date" name="date" value="{{ session.date }}" required>
+
+    <label for="start_time">Starttijd:</label>
+    <input type="time" name="start_time" value="{{ session.start_time }}" required>
+
+    <label for="end_time">Eindtijd:</label>
+    <input type="time" name="end_time" value="{{ session.end_time }}" required>
+
+    <label for="location">Locatie:</label>
+    <input type="text" name="location" value="{{ session.location }}" required>
+
+    <label for="max_attendees">Max aantal deelnemers:</label>
+    <input type="number" name="max_attendees" value="{{ session.max_attendees }}" min="1" required>
+
+    <label for="speaker_first_name">Voornaam spreker:</label>
+    <input type="text" name="speaker_first_name" value="{{ session.speaker_first_name }}" required>
+
+    <label for="speaker_name">Achternaam spreker:</label>
+    <input type="text" name="speaker_name" value="{{ session.speaker_name }}" required>
+
+    <label for="speaker_bio">Bio spreker:</label>
+    <textarea name="speaker_bio" required>{{ session.speaker_bio }}</textarea>
+
+    <button type="submit">Wijzigingen opslaan</button>
+</form>
+{% endblock %}
