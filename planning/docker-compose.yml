@@ -1,11 +1,3 @@
-networks:
-  attendify_net:
-    driver: bridge
-    name: attendify_net
-
-  planning_net:
-    driver: bridge
-
 services:
   planning:
     build: .
@@ -193,3 +185,11 @@ services:
     networks:
       - planning_net
       - attendify_net
+
+networks:
+  attendify_net:
+    driver: bridge
+    name: attendify_net
+
+  planning_net:
+    driver: bridge
