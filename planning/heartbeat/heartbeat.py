@@ -27,6 +27,8 @@ SERVICES = [
     ('planning-phpmyadmin-1', 80),
     ('planning-consumer-1', 80),
     ('planning-consumer-user-link-1', 80),
+    ('planning-webforms-1', 80),
+    ('planning-synchronizer-db-1', 80)
 ]
 
 def check_service_status(container_name):

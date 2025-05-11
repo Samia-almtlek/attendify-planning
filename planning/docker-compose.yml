@@ -17,6 +17,7 @@ services:
       - .env
 
   webforms:
+    env_file: ./.env
     build:
       context: .
       dockerfile: Dockerfile-webforms
