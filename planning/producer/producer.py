@@ -106,12 +106,16 @@ def publish_session(data: dict, operation: str = "create") -> None:
     _publish(xml_bytes, ROUTING_KEYS["session"][operation])
 
 def _publish(xml_payload: bytes, routing_key: str):
+    # Bepaal exchange op basis van routing key
+    exchange = "session" if routing_key.startswith("session.") else "event"
+
     conn, ch = _get_channel()
     ch.basic_publish(
-        exchange=EXCHANGE_NAME,
+        exchange=exchange,
         routing_key=routing_key,
         body=xml_payload,
         properties=pika.BasicProperties(content_type="application/xml")
     )
-    print(f"📨  Verzonden ({routing_key}):\n{xml_payload.decode()}\n")
+    print(f"📨  Verzonden naar exchange '{exchange}' met key '{routing_key}':\n{xml_payload.decode()}\n")
     conn.close()
+
