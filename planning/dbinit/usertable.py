@@ -41,7 +41,9 @@ def create_or_update_table(connection):
             "first_name": "VARCHAR(50) NOT NULL",
             "last_name": "VARCHAR(50) NOT NULL",
             "email": "VARCHAR(100) UNIQUE NOT NULL",
-            "title": "VARCHAR(20)"
+            "title": "VARCHAR(20)",
+            "password": "VARCHAR(255) NOT NULL"  # <-- toegevoegd
+
         }
 
         if not table_exists:

@@ -1,10 +1,19 @@
 FROM python:3.11-slim
 
-WORKDIR /webforms/webforms
+WORKDIR /usr/local/bin/webforms
 
-COPY requirements.txt ./
+# Nodige OS-packages voor bcrypt compilatie
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libffi-dev \
+    python3-dev \
+    gcc \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY webforms/ .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+RUN pip install Flask-WTF
 
 CMD ["python", "webforms.py"]

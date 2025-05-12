@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<h1>🔐 Inloggen</h1>
+
+<form method="POST">
+    <label for="email">E-mailadres:</label>
+    <input type="email" name="email" required>
+
+    <label for="password">Wachtwoord:</label>
+    <input type="password" name="password" required>
+
+    <button type="submit">Login</button>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+</form>
+
+{% if get_flashed_messages() %}
+  <ul style="color: red;">
+    {% for msg in get_flashed_messages() %}
+      <li>{{ msg }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% endblock %}
