@@ -1,20 +1,11 @@
 services:
-  planning:
-    build: .
-    ports:
-      - "30018:5000"
-    volumes:
-      - ./service_account.json:/app/service_account.json
-    env_file:
-      - .env
-
   webforms:
     env_file: ./.env
     build:
       context: .
       dockerfile: Dockerfile-webforms
     ports:
-      - "30019:5000"
+      - "${PORT_WEBFORMS}:5000"
     volumes:
       - ./webforms:/usr/local/bin/webforms
     environment:
@@ -29,8 +20,6 @@ services:
 
   db:
     image: mysql:8.0
-    ports:
-      - "30013:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=${LOCAL_DB_PASSWORD}
       - MYSQL_DATABASE=${LOCAL_DB_NAME}
@@ -42,7 +31,7 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     ports:
-      - "30012:80"
+      - "${PORT_PHPMYADMIN}:80"
     environment:
       - PMA_HOST=db
       - PMA_USER=${LOCAL_DB_USER}
