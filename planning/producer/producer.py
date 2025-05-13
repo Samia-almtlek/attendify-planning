@@ -52,7 +52,7 @@ def _event_to_xml(data: dict, operation: str) -> bytes:
     ET.SubElement(e, "id").text = data["event_id"]
 
     if operation != "delete":
-        ET.SubElement(s, "uid").text         = data["session_id"]
+        ET.SubElement(e, "uid").text         = data["session_id"]
         ET.SubElement(e, "title").text         = data["title"]
         ET.SubElement(e, "description").text   = data.get("description", "")
         ET.SubElement(e, "location").text      = data.get("location", "")
