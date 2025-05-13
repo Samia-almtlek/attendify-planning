@@ -31,11 +31,22 @@ def get_gcal_service():
         SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     return build('calendar', 'v3', credentials=credentials)
 
+def normalize_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, (datetime, )):
+        return value.isoformat()
+    return str(value)
+
 def hash_row(row):
-    """Genereert een SHA256 hash van een dictionary (event/session) zonder gcal_id, synced, synced_at."""
-    relevant = {k: v for k, v in row.items() if k not in ('gcal_id', 'synced', 'synced_at')}
-    json_string = json.dumps(relevant, sort_keys=True, default=str)
-    return hashlib.sha256(json_string.encode()).hexdigest()
+    relevant = {
+        k: normalize_value(v)
+        for k, v in row.items()
+        if k not in ('gcal_id', 'synced', 'synced_at')
+    }
+    json_string = json.dumps(relevant, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(json_string.encode('utf-8')).hexdigest()
+
 
 def fetch_all(conn, table):
     cur = conn.cursor(dictionary=True)

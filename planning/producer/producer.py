@@ -54,6 +54,7 @@ def _event_to_xml(data: dict, operation: str) -> bytes:
     if operation != "delete":
         ET.SubElement(e, "uid").text         = data["session_id"]
         ET.SubElement(e, "title").text         = data["title"]
+        ET.SubElement(e, "gcal_id").text = data.get("gcal_id", "")
         ET.SubElement(e, "description").text   = data.get("description", "")
         ET.SubElement(e, "location").text      = data.get("location", "")
         ET.SubElement(e, "start_date").text    = str(data["start_date"])
@@ -77,6 +78,7 @@ def _session_to_xml(data: dict, operation: str) -> bytes:
     if operation != "delete":
         ET.SubElement(s, "uid").text         = data["session_id"]
         ET.SubElement(s, "event_id").text    = data["event_id"]
+        ET.SubElement(s, "gcal_id").text = data.get("gcal_id", "")
         ET.SubElement(s, "title").text       = data["title"]
         ET.SubElement(s, "description").text = data.get("description", "")
         ET.SubElement(s, "date").text        = str(data["date"])
