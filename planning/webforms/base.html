@@ -1,0 +1,45 @@
+<!-- base.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Planning Webforms{% endblock %}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        nav {
+            background-color: #007BFF;
+            padding: 1em;
+        }
+        nav a {
+            color: white;
+            margin-right: 15px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        .content {
+            padding: 20px;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+ 
+</head>
+<body>
+    <nav>
+        <a href="/">🏠 Home</a>
+        <a href="/event">📅 Event aanmaken</a>
+        <a href="/session">🧩 Sessie aanmaken</a>
+        <a href="/admin/events">🛠️ Events beheren</a>
+        <a href="/admin/sessions">🛠️ Sessies beheren</a>
+        <a href="/logout">logout</a>
+
+    </nav>
+    <div class="content">
+        <main>
+        {% block content %}{% endblock %}
+    </main>
+</div>
+</body>
+</html>

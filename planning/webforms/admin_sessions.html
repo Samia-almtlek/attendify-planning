@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Sessiebeheer{% endblock %}
+
+{% block content %}
+<h1>🎤 Sessiebeheer</h1>
+
+<nav>
+    <a href="/" class="button">🏠 Home</a>
+    <a href="/session" class="button">➕ Nieuwe sessie</a>
+</nav>
+
+{% if sessions %}
+<table>
+    <thead>
+        <tr>
+            <th>Titel</th>
+            <th>Datum</th>
+            <th>Starttijd</th>
+            <th>Eindtijd</th>
+            <th>Event</th>
+            <th>Acties</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for session in sessions %}
+        <tr>
+            <td>{{ session.title }}</td>
+            <td>{{ session.date }}</td>
+            <td>{{ session.start_time }}</td>
+            <td>{{ session.end_time }}</td>
+            <td>{{ session.event_title }}</td>
+            <td>
+                <a href="/session/update/{{ session.session_id }}" class="button">✏️ Bewerken</a>
+                <a href="/session/delete/{{ session.session_id }}" class="button delete" onclick="return confirm('Weet je zeker dat je deze sessie wilt verwijderen?')">🗑️ Verwijderen</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>Er zijn nog geen sessies toegevoegd.</p>
+{% endif %}
+{% endblock %}

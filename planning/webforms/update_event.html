@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Event aanpassen{% endblock %}
+
+{% block content %}
+<h1>✏️ Event aanpassen</h1>
+
+<form method="POST">
+    <label for="title">Titel:</label>
+    <input type="text" name="title" value="{{ event.title }}" required><br><br>
+
+    <label for="description">Beschrijving:</label>
+    <textarea name="description" required>{{ event.description }}</textarea><br><br>
+
+    <label for="location">Locatie:</label>
+    <input type="text" name="location" value="{{ event.location }}" required><br><br>
+
+    <label for="start_date">Startdatum:</label>
+    <input type="date" name="start_date" value="{{ event.start_date }}" required><br><br>
+
+    <label for="end_date">Einddatum:</label>
+    <input type="date" name="end_date" value="{{ event.end_date }}" required><br><br>
+
+    <label for="start_time">Starttijd:</label>
+    <input type="time" name="start_time" value="{{ event.start_time }}" required><br><br>
+
+    <label for="end_time">Eindtijd:</label>
+    <input type="time" name="end_time" value="{{ event.end_time }}" required><br><br>
+
+    <label for="entrance_fee">Toegangsprijs (€):</label>
+    <input type="number" step="0.01" name="entrance_fee" value="{{ event.entrance_fee }}" required><br><br>
+
+    <p><strong>Organisator:</strong> {{ event.organizer_first_name }} {{ event.organizer_name }}</p>
+
+    <input type="submit" value="Wijzigingen opslaan">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+</form>
+{% endblock %}

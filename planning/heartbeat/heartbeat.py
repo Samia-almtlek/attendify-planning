@@ -20,6 +20,7 @@ RABBITMQ_VHOST = os.environ.get('RABBITMQ_USER', 'attendify')
 EXCHANGE_NAME = 'monitoring'
 ROUTING_KEY = 'monitoring.heartbeat'
 
+
 # List of services to monitor (service name + port)
 SERVICES = [
     ('planning-planning-1', 5000),
@@ -27,6 +28,8 @@ SERVICES = [
     ('planning-phpmyadmin-1', 80),
     ('planning-consumer-1', 80),
     ('planning-consumer-user-link-1', 80),
+    ('planning-webforms-1', 80),
+    ('planning-synchronizer-db-1', 80)
 ]
 
 def check_service_status(container_name):

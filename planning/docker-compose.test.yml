@@ -1,7 +1,7 @@
 networks:
   attendify_net:
-    driver: bridge
-    name: attendify_net
+    external: true
+    name: attendify_net_testing
 
   planning_net:
     driver: bridge
