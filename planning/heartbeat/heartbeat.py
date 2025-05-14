@@ -23,7 +23,6 @@ ROUTING_KEY = 'monitoring.heartbeat'
 
 # List of services to monitor (service name + port)
 SERVICES = [
-    ('planning-planning-1', 5000),
     ('planning-db-1', 3306),
     ('planning-phpmyadmin-1', 80),
     ('planning-consumer-1', 80),
