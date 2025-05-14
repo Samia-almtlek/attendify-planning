@@ -15,48 +15,25 @@ jobs:
   docker-ci:
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Create service-account.json from GitHub Secret
       - name: Create service account JSON
         run: |
           mkdir -p planning
           echo "${{ secrets.SERVICE_ACCOUNT_JSON }}" > planning/service_account.json
 
-      # 3. Build Docker image
       - name: Build Docker image
         run: |
           docker build -t attendify-planning planning/
 
-      # 4. Run Docker container with secrets
-      - name: Run Docker container with secrets
-        run: |
-          docker run -d --rm \
-            -v ${{ github.workspace }}/planning/service_account.json:/app/service_account.json \
-            -e GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }} \
-            -e GOOGLE_CALENDAR_ID=${{ secrets.GOOGLE_CALENDAR_ID }} \
-            -e GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }} \
-            -p 5000:5000 \
-            --name attendify-planning-container \
-            attendify-planning
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
 
-          # Give time to start
-          sleep 5
-
-      # 5. Test the API endpoint (Basic test)
-      - name: Test API endpoint
+      - name: Install test dependencies & run unit tests
         run: |
-          curl --request POST \
-            --header "Content-Type: application/json" \
-            --data '{"summary":"Test Event","start":"2025-03-22T09:00:00","end":"2025-03-22T10:00:00"}' \
-            http://localhost:5000/create-event || exit 1
-
-      # 6. Stop Docker container after test
-      - name: Stop Docker container
-        run: |
-          docker stop attendify-planning-container
+          pip install -r planning/tests/unit/requirements.txt
+          pytest planning/tests/unit
 
   # Deploy to test only on the test branch
   deploy-test:
