@@ -32,7 +32,7 @@ jobs:
 
       - name: Install test dependencies & run unit tests
         run: |
-          pip install -r planning/tests/unit/requirements-test.txt
+          pip install -r planning/tests/unit/requirements.txt
           pytest planning/tests/unit
 
   # Deploy to test only on the test branch
