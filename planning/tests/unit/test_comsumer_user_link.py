@@ -1,0 +1,3 @@
+import pytest
+import planning.consumer.consumer_user_link_eventsession as consumer_user_link_eventsession
+from unittest.mock import MagicMock
