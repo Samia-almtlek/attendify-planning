@@ -7,7 +7,6 @@ services:
     volumes:
       - ./tests/integration:/tests
     depends_on:
-      - webforms
       - db
       - rabbitmq
     networks:
