@@ -8,7 +8,6 @@ services:
       - ./tests/integration:/tests
     depends_on:
       - db
-      - rabbitmq
     networks:
       - planning_net
       - attendify_net
