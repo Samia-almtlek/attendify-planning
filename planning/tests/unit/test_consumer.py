@@ -17,7 +17,7 @@ def test_parse_message_valid():
     </root>
     """
     result = consumer.parse_message(xml)
-    assert result == ('create', '123', 'milad', 'Test', 'milad@test.com', 'Developer', 'pass123')
+    assert result == ('create', '123', 'milad', 'Test', 'miad@test.com', 'Developer', 'pass123')
 
 def test_user_id_exists_true(mocker):
     mock_conn = MagicMock()
