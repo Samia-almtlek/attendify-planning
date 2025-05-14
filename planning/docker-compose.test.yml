@@ -1,6 +1,20 @@
+services:
+  integration-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile-tests
+    volumes:
+      - ./tests/integration:/tests
+    depends_on:
+      - webforms
+      - db
+      - rabbitmq
+    networks:
+      - planning_net
+      - attendify_net
 networks:
   attendify_net:
-    external: true
+    internal: true
     name: attendify_net_testing
 
   planning_net:
