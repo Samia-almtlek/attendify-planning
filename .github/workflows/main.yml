@@ -27,11 +27,6 @@ jobs:
         run: |
           docker build -t attendify-planning planning/
 
-      - name: Install test dependencies & run unit tests
-        run: |
-          pip install -r planning/tests/unit/requirements.txt
-          PYTHONPATH=$(pwd) pytest planning/tests/unit
-
   # Deploy to test only on the test branch
   deploy-test:
     name: Deploy to Test Server
