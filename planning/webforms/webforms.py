@@ -11,6 +11,7 @@ import bcrypt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_wtf.csrf import CSRFProtect
+from flask import render_template, request, redirect, url_for, session
 
 
 
@@ -61,6 +62,39 @@ def login_required(f):
 def check_bcrypt_hash(stored_hash, input_password):
     return bcrypt.checkpw(input_password.encode(), stored_hash.encode())
 
+from datetime import time, date, timedelta
+
+@app.route('/event/sessions/<event_id>')
+@login_required
+def get_sessions_for_event(event_id):
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT title, date, start_time, end_time, location
+        FROM sessions
+        WHERE event_id = %s
+        ORDER BY date, start_time
+    """, (event_id,))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    # 🔽 Format tijden (remove seconds)
+    for r in rows:
+        if isinstance(r["start_time"], timedelta):
+            total_minutes = int(r["start_time"].total_seconds() // 60)
+            r["start_time"] = f"{total_minutes // 60:02d}:{total_minutes % 60:02d}"
+        else:
+            r["start_time"] = r["start_time"].strftime("%H:%M")
+
+        if isinstance(r["end_time"], timedelta):
+            total_minutes = int(r["end_time"].total_seconds() // 60)
+            r["end_time"] = f"{total_minutes // 60:02d}:{total_minutes % 60:02d}"
+        else:
+            r["end_time"] = r["end_time"].strftime("%H:%M")
+
+    return {"sessions": rows}
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -76,20 +110,17 @@ def login():
         conn.close()
 
         if not user:
-            return "<p>❌ Geen gebruiker gevonden.</p><a href='/login'>Terug</a>"
-
-        print(f"Hash uit DB: {user['password']}")  # DEBUG
-
-        if check_bcrypt_hash(user['password'], password):
+            flash(" Geen gebruiker gevonden.")
+        elif not user.get('is_admin'):
+            flash(" Jij bent geen admin. Alleen admins kunnen inloggen.")
+        elif not check_bcrypt_hash(user['password'], password):
+            flash(" Ongeldig wachtwoord.")
+        else:
             session['user_email'] = user['email']
             session['user_id'] = user['user_id']
             return redirect(url_for('home'))
-        else:
-            return "<p>❌ Ongeldig wachtwoord.</p><a href='/login'>Probeer opnieuw</a>"
-
 
     return render_template('login.html')
-
 @app.route('/logout')
 @login_required
 def logout():
