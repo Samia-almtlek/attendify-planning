@@ -88,7 +88,7 @@ services:
     command:
       - "sh"
       - "-c"
-      - "pip install pika &&  pip install mysql-connector-python && python3 /usr/local/bin/dbinit/usertable.py && python3 /usr/local/bin/dbinit/user_event_table.py && python3 /usr/local/bin/dbinit/event_session.py"
+      - "pip install pika &&  pip install mysql-connector-python && python3 /usr/local/bin/dbinit/user_event_table.py && python3 /usr/local/bin/dbinit/event_session.py"
     profiles:
       - dbinit
       - dev
@@ -151,6 +151,25 @@ services:
       - "sh"
       - "-c"
       - "pip install pika && pip install mysql-connector-python && python3 /usr/local/bin/consumer_user_link_eventsession.py"
+    restart: always
+    networks:
+      - planning_net
+      - attendify_net
+  consumer-companies:
+    env_file: ./.env
+    image: python:3.9
+    volumes:
+      - ./consumer/consumer_companies.py:/usr/local/bin/consumer_companies.py
+    environment:
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
+      - LOCAL_DB_NAME=${LOCAL_DB_NAME}
+    depends_on:
+      - db
+    command:
+      - "sh"
+      - "-c"
+      - "pip install pika && pip install mysql-connector-python && python3 /usr/local/bin/consumer_companies.py"
     restart: always
     networks:
       - planning_net

@@ -1,0 +1,13 @@
+pytest
+requests
+pika
+Flask
+google-api-python-client
+oauth2client
+python-dotenv
+pika
+flask_sqlalchemy
+mysql-connector-python
+bcrypt
+Flask-Limiter
+Flask-WTF

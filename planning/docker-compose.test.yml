@@ -1,6 +1,6 @@
 networks:
   attendify_net:
-    external: true
+    internal: true
     name: attendify_net_testing
 
   planning_net:
