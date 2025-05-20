@@ -45,67 +45,96 @@ def _build_info(parent, operation: str):
     return info
 
 def _event_to_xml(data: dict, operation: str) -> bytes:
-    root = ET.Element("attendify")
-    _build_info(root, operation)
+    root = ET.Element("attendify", {
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        "xsi:noNamespaceSchemaLocation": "event.xsd"
+    })
+
+    info = ET.SubElement(root, "info")
+    ET.SubElement(info, "sender").text = "planning"
+    ET.SubElement(info, "operation").text = operation
 
     e = ET.SubElement(root, "event")
-    ET.SubElement(e, "id").text = data["event_id"]
-
-    if operation != "delete":
-        ET.SubElement(e, "uid").text         = data["session_id"]
-        ET.SubElement(e, "title").text         = data["title"]
-        ET.SubElement(e, "gcal_id").text = data.get("gcal_id", "")
-        ET.SubElement(e, "description").text   = data.get("description", "")
-        ET.SubElement(e, "location").text      = data.get("location", "")
-        ET.SubElement(e, "start_date").text    = str(data["start_date"])
-        ET.SubElement(e, "end_date").text      = str(data["end_date"])
-        ET.SubElement(e, "start_time").text    = str(data["start_time"])
-        ET.SubElement(e, "end_time").text      = str(data["end_time"])
-        ET.SubElement(e, "organizer_name").text= data.get("organizer_name", "")
-        ET.SubElement(e, "organizer_uid").text = data.get("organizer_uid", "")
-        ET.SubElement(e, "entrance_fee").text  = str(data.get("entrance_fee", "0.00"))
+    ET.SubElement(e, "uid").text = data["event_id"]                         # uid = event_id
+    ET.SubElement(e, "gcid").text = data.get("gcal_id", "")                # gcal_id wordt gcid in XML
+    ET.SubElement(e, "title").text = data["title"]
+    ET.SubElement(e, "description").text = data.get("description", "")
+    ET.SubElement(e, "location").text = data.get("location", "")
+    ET.SubElement(e, "start_date").text = str(data["start_date"])
+    ET.SubElement(e, "end_date").text = str(data["end_date"])
+    ET.SubElement(e, "start_time").text = str(data["start_time"])
+    ET.SubElement(e, "end_time").text = str(data["end_time"])
+    ET.SubElement(e, "organizer_name").text = data.get("organizer_name", "")
+    ET.SubElement(e, "organizer_uid").text = data.get("organizer_uid", "")
+    ET.SubElement(e, "entrance_fee").text = str(data.get("entrance_fee", "0.00"))
 
     return ET.tostring(root, encoding="utf-8")
 
 
 def _session_to_xml(data: dict, operation: str) -> bytes:
-    root = ET.Element("attendify")
-    _build_info(root, operation)
+    root = ET.Element("attendify", {
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        "xsi:noNamespaceSchemaLocation": "session.xsd"
+    })
+
+    info = ET.SubElement(root, "info")
+    ET.SubElement(info, "sender").text = "planning"
+    ET.SubElement(info, "operation").text = operation
 
     s = ET.SubElement(root, "session")
-    ET.SubElement(s, "id").text = data["session_id"]
+    ET.SubElement(s, "uid").text = data["session_id"]
+    ET.SubElement(s, "event_id").text = data["event_id"]
+    ET.SubElement(s, "title").text = data["title"]
+    ET.SubElement(s, "description").text = data.get("description", "")
+    ET.SubElement(s, "date").text = str(data["date"])
+    ET.SubElement(s, "start_time").text = str(data["start_time"])
+    ET.SubElement(s, "end_time").text = str(data["end_time"])
+    ET.SubElement(s, "location").text = data.get("location", "")
+    ET.SubElement(s, "max_attendees").text = str(data.get("max_attendees", 0))
+    ET.SubElement(s, "gcid").text = data.get("gcal_id", "")                # toegevoegd net als bij event
 
-    if operation != "delete":
-        ET.SubElement(s, "uid").text         = data["session_id"]
-        ET.SubElement(s, "event_id").text    = data["event_id"]
-        ET.SubElement(s, "gcal_id").text = data.get("gcal_id", "")
-        ET.SubElement(s, "title").text       = data["title"]
-        ET.SubElement(s, "description").text = data.get("description", "")
-        ET.SubElement(s, "date").text        = str(data["date"])
-        ET.SubElement(s, "start_time").text  = str(data["start_time"])
-        ET.SubElement(s, "end_time").text    = str(data["end_time"])
-        ET.SubElement(s, "location").text    = data.get("location", "")
-        ET.SubElement(s, "max_attendees").text = str(data.get("max_attendees", 0))
-
-        speaker = ET.SubElement(s, "speaker")
-        ET.SubElement(speaker, "name").text = f"{data.get('speaker_first_name','')} {data.get('speaker_name','')}".strip()
-        ET.SubElement(speaker, "bio").text  = data.get("speaker_bio", "")
+    speaker = ET.SubElement(s, "speaker")
+    ET.SubElement(speaker, "name").text = f"{data.get('speaker_first_name','')} {data.get('speaker_name','')}".strip()
+    ET.SubElement(speaker, "bio").text = data.get("speaker_bio", "")
 
     return ET.tostring(root, encoding="utf-8")
+
 
 
 # --- openbare API ------------------------------------------------------------
 def publish_event(data: dict, operation: str = "create") -> None:
     if operation not in ROUTING_KEYS["event"]:
         raise ValueError("Invalid operation for event")
-    xml_bytes = _event_to_xml(data, operation)
-    _publish(xml_bytes, ROUTING_KEYS["event"][operation])
+
+    # Verplichte velden controleren
+    required_fields = ["event_id", "title", "start_date", "end_date", "start_time", "end_time"]
+    for field in required_fields:
+        if field not in data:
+            raise KeyError(f"⛔ Required field '{field}' is missing in event data for RabbitMQ publish.")
+
+    try:
+        xml_bytes = _event_to_xml(data, operation)
+        _publish(xml_bytes, ROUTING_KEYS["event"][operation])
+    except Exception as e:
+        raise RuntimeError(f"❌ Failed to publish event to RabbitMQ: {e}")
+
 
 def publish_session(data: dict, operation: str = "create") -> None:
     if operation not in ROUTING_KEYS["session"]:
         raise ValueError("Invalid operation for session")
-    xml_bytes = _session_to_xml(data, operation)
-    _publish(xml_bytes, ROUTING_KEYS["session"][operation])
+
+    # Verplichte velden controleren
+    required_fields = ["session_id", "event_id", "title", "date", "start_time", "end_time"]
+    for field in required_fields:
+        if field not in data:
+            raise KeyError(f"⛔ Required field '{field}' is missing in session data for RabbitMQ publish.")
+
+    try:
+        xml_bytes = _session_to_xml(data, operation)
+        _publish(xml_bytes, ROUTING_KEYS["session"][operation])
+    except Exception as e:
+        raise RuntimeError(f"❌ Failed to publish session to RabbitMQ: {e}")
+
 
 def _publish(xml_payload: bytes, routing_key: str):
     # Bepaal exchange op basis van routing key
