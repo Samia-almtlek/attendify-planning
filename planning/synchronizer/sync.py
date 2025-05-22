@@ -9,7 +9,11 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 sys.path.append('/usr/local/bin')
-from producer.producer import publish_event, publish_session
+try:
+    from producer.producer import publish_event, publish_session
+except ModuleNotFoundError:
+    from planning.producer.producer import publish_event, publish_session
+
 
 # -------------------- CONFIG -------------------- #
 
