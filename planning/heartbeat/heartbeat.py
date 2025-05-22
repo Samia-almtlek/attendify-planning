@@ -117,8 +117,6 @@ def main():
                 else:
                     down_services.append(container_name)
 
-            logging.info(f"Sent heartbeat for: {', '.join(sent_heartbeats) if sent_heartbeats else 'None'}")
-            logging.info(f"DOWN: {', '.join(down_services) if down_services else 'None'}")
             time.sleep(1)
 
     except KeyboardInterrupt:
