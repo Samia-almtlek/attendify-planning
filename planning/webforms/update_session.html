@@ -27,13 +27,13 @@
     <label for="max_attendees">Max aantal deelnemers:</label>
     <input type="number" name="max_attendees" value="{{ session.max_attendees }}" min="1" required>
 
-    <label for="speaker_first_name">Voornaam spreker:</label>
+    <label for="speaker_first_name">Voornaam organisator:</label>
     <input type="text" name="speaker_first_name" value="{{ session.speaker_first_name }}" required>
 
-    <label for="speaker_name">Achternaam spreker:</label>
+    <label for="speaker_name">Achternaam organisator:</label>
     <input type="text" name="speaker_name" value="{{ session.speaker_name }}" required>
 
-    <label for="speaker_bio">Bio spreker:</label>
+    <label for="speaker_bio">Bio organisator:</label>
     <textarea name="speaker_bio" required>{{ session.speaker_bio }}</textarea>
 
     <button type="submit">Wijzigingen opslaan</button>

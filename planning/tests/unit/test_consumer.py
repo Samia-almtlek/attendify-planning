@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 def test_parse_message_valid():
     xml = """
-    <root>
+    <attendify>
         <info><operation>create</operation></info>
         <user>
             <uid>123</uid>
@@ -13,11 +13,12 @@ def test_parse_message_valid():
             <email>milad@test.com</email>
             <title>Developer</title>
             <password>pass123</password>
+            <is_admin>true</is_admin>
         </user>
-    </root>
+    </attendify>
     """
     result = consumer.parse_message(xml)
-    assert result == ('create', '123', 'milad', 'Test', 'milad@test.com', 'Developer', 'pass123')
+    assert result == ('create', '123', 'milad', 'Test', 'milad@test.com', 'Developer', 'pass123', True)
 
 def test_user_id_exists_true(mocker):
     mock_conn = MagicMock()

@@ -3,69 +3,242 @@
 {% block title %}Sessie Aanmaken{% endblock %}
 
 {% block content %}
-<h1>Sessie Aanmaken</h1>
-<form action="/session" method="post" onsubmit="return validateForm(event)">
-    <label for="title">Titel sessie:</label>
-    <input type="text" id="title" name="title" required>
+<style>
+    .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
 
-    <label for="description">Beschrijving:</label>
-    <textarea id="description" name="description" required></textarea>
+    .planning-section {
+        margin-bottom: 40px;
+    }
 
-    <label for="event_id">Kies Event:</label>
-    <select id="event_id" name="event_id" required>
-        {% for event in events %}
-            <option value="{{ event.event_id }}">{{ event.title }}</option>
-        {% endfor %}
-    </select>
+    .planning-date-group {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 10px 15px;
+        margin-bottom: 20px;
+        background-color: #f9f9f9;
+    }
 
-    <label for="date">Datum:</label>
-    <input type="date" id="date" name="date" required>
+    .planning-date-group h4 {
+        margin-top: 0;
+        margin-bottom: 10px;
+        color: #333;
+    }
 
-    <label for="start_time">Starttijd:</label>
-    <input type="time" id="start_time" name="start_time" required>
+    .session-card {
+        background-color: #e9f3ff;
+        padding: 10px 15px;
+        margin: 8px 0;
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
 
-    <label for="end_time">Eindtijd:</label>
-    <input type="time" id="end_time" name="end_time" required>
+    .session-card div {
+        display: flex;
+        flex-direction: column;
+    }
 
-    <label for="location">Locatie:</label>
-    <input type="text" id="location" name="location" required>
 
-    <label for="max_attendees">Max aantal deelnemers:</label>
-    <input type="number" id="max_attendees" name="max_attendees" min="1" required>
+</style>
 
-    <label for="speaker_first_name">Voornaam spreker:</label>
-    <input type="text" id="speaker_first_name" name="speaker_first_name" required>
+<div class="container">
+    <h1>Sessie Aanmaken</h1>
 
-    <label for="speaker_name">Achternaam spreker:</label>
-    <input type="text" id="speaker_name" name="speaker_name" required>
+    <div class="planning-section">
+        <h3>Planning voor geselecteerd event</h3>
+        <div id="planning-visual"></div>
+    </div>
 
-    <label for="speaker_bio">Bio spreker:</label>
-    <textarea id="speaker_bio" name="speaker_bio" required></textarea>
+    <form action="/session" method="post" onsubmit="return validateForm(event)">
+        <label for="title">Titel sessie:</label>
+        <input type="text" id="title" name="title" required>
 
-    <button type="submit">Sessie aanmaken</button>
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="description">Beschrijving:</label>
+        <textarea id="description" name="description" required></textarea>
 
-</form>
+        <label for="event_id">Kies Event:</label>
+        <select id="event_id" name="event_id" required>
+            <option disabled selected hidden>-- Selecteer een event --</option>
+            {% for event in events %}
+                <option value="{{ event.event_id }}">{{ event.title }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="date">Datum:</label>
+        <input type="date" id="date" name="date" required>
+
+        <label for="start_time">Starttijd:</label>
+        <input type="time" id="start_time" name="start_time" required>
+
+        <label for="end_time">Eindtijd:</label>
+        <input type="time" id="end_time" name="end_time" required>
+
+        <label for="location">Locatie:</label>
+        <input type="text" id="location" name="location" required>
+
+        <label for="max_attendees">Max aantal deelnemers:</label>
+        <input type="number" id="max_attendees" name="max_attendees" min="1" required>
+
+        <label for="speaker_first_name">Voornaam organisator:</label>
+        <input type="text" id="speaker_first_name" name="speaker_first_name" required>
+
+        <label for="speaker_name">Achternaam organisator:</label>
+        <input type="text" id="speaker_name" name="speaker_name" required>
+
+        <label for="speaker_bio">Bio organisator:</label>
+        <textarea id="speaker_bio" name="speaker_bio" required></textarea>
+
+        <button type="submit">Sessie aanmaken</button>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+</div>
 
 <script>
-    function validateForm(event) {
-        const startTime = document.getElementById("start_time").value;
-        const endTime = document.getElementById("end_time").value;
-        const maxAttendees = parseInt(document.getElementById("max_attendees").value);
-
-        if (startTime >= endTime) {
-            alert("❌ Starttijd moet vóór de eindtijd liggen.");
-            event.preventDefault();
-            return false;
-        }
-
-        if (isNaN(maxAttendees) || maxAttendees < 1) {
-            alert("❌ Max aantal deelnemers moet een positief getal zijn.");
-            event.preventDefault();
-            return false;
-        }
-
-        return true;
+function validateForm(event) {
+    const start = document.getElementById("start_time").value;
+    const end = document.getElementById("end_time").value;
+    if (start >= end) {
+        alert("❌ Starttijd moet vóór eindtijd liggen.");
+        event.preventDefault();
+        return false;
     }
+    return true;
+}
+
+document.getElementById('event_id').addEventListener('change', function () {
+    const eventId = this.value;
+    fetch(`/event/sessions/${eventId}`)
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById("planning-visual");
+            container.innerHTML = '';
+            const grouped = {};
+
+            data.sessions.forEach(session => {
+                if (!grouped[session.date]) grouped[session.date] = [];
+                grouped[session.date].push(session);
+            });
+
+            for (const date in grouped) {
+                const group = document.createElement('div');
+                group.className = 'planning-date-group';
+
+                const d = new Date(date);
+                const title = document.createElement('h4');
+                title.textContent = ` ${d.toLocaleDateString('en-GB', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                })}`;
+                group.appendChild(title);
+
+                const sorted = grouped[date].sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+for (let i = 0; i < sorted.length; i++) {
+    const session = sorted[i];
+
+    const card = document.createElement('div');
+    card.className = 'session-card';
+    card.innerHTML = `
+        <div>
+            <strong>${session.title}</strong>
+            ${session.start_time.slice(0,5)} - ${session.end_time.slice(0,5)}<br>
+            ${session.location}
+        </div>
+    `;
+    group.appendChild(card);
+
+    const next = sorted[i + 1];
+    if (next && session.end_time < next.start_time) {
+        const gap = document.createElement('div');
+        gap.className = 'session-card';
+        gap.style.backgroundColor = '#fff5d1';
+        gap.style.border = '1px dashed #e6b800';
+        gap.innerHTML = `
+            <div>
+                <em>Vrij tussen:</em><br>
+                ${session.end_time.slice(0,5)} - ${next.start_time.slice(0,5)}
+            </div>
+        `;
+        group.appendChild(gap);
+    }
+}
+
+
+                container.appendChild(group);
+            }
+
+            if (data.sessions.length === 0) {
+                container.innerHTML = "<p>⚠️ Geen sessies voor dit event.</p>";
+            }
+        });
+});
+for (const date in sessionsByDate) {
+    const dateHeader = document.createElement('h4');
+    dateHeader.textContent = `📅 ${new Date(date).toLocaleDateString('en-GB', {
+        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'
+    })}`;
+    planningDiv.appendChild(dateHeader);
+
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.flexWrap = 'wrap';
+    container.style.gap = '10px';
+
+    // Sorteer sessies op start_time
+    const sortedSessions = sessionsByDate[date].sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+    for (let i = 0; i < sortedSessions.length; i++) {
+        const current = sortedSessions[i];
+
+        const card = document.createElement('div');
+        card.style.border = '1px solid #ccc';
+        card.style.borderRadius = '5px';
+        card.style.padding = '10px';
+        card.style.minWidth = '200px';
+        card.style.backgroundColor = '#f0f8ff';
+
+        card.innerHTML = `
+            <strong>${current.title}</strong><br>
+            🕒 ${current.start_time.slice(0,5)} - ${current.end_time.slice(0,5)}<br>
+            📍 ${current.location}
+        `;
+        container.appendChild(card);
+
+        // Check op gap
+        const currentEnd = current.end_time;
+        const next = sortedSessions[i + 1];
+
+        if (next) {
+            const nextStart = next.start_time;
+
+            if (currentEnd < nextStart) {
+                const gapCard = document.createElement('div');
+                gapCard.style.border = '1px dashed #999';
+                gapCard.style.borderRadius = '5px';
+                gapCard.style.padding = '10px';
+                gapCard.style.minWidth = '200px';
+                gapCard.style.backgroundColor = '#fefefe';
+                gapCard.style.color = '#999';
+                gapCard.innerHTML = `
+                    🕓 Vrij tussen<br>
+                    ${currentEnd.slice(0,5)} - ${nextStart.slice(0,5)}
+                `;
+                container.appendChild(gapCard);
+            }
+        }
+    }
+
+    planningDiv.appendChild(container);
+}
+
 </script>
 {% endblock %}
