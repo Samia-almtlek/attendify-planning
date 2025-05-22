@@ -6,6 +6,7 @@ import planning.webforms.webforms as webforms  # jouw Flask app heet zo
 @pytest.fixture
 def client():
     webforms.app.config["TESTING"] = True
+    webforms.app.config["WTF_CSRF_ENABLED"] = False  # <--- Voeg dit toe
     webforms.app.secret_key = "test"
     with webforms.app.test_client() as client:
         with client.session_transaction() as sess:
