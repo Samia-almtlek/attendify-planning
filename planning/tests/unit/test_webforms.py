@@ -16,7 +16,7 @@ def client():
 # LOGIN LOGICA (zonder DB connectie)
 # -------------------------------
 
-@patch("webforms.get_connection")
+@patch("planning.webforms.webforms.get_connection")
 def test_login_user_not_found(mock_conn, client):
     mock_cursor = MagicMock()
     mock_cursor.fetchone.return_value = None
@@ -25,7 +25,7 @@ def test_login_user_not_found(mock_conn, client):
     response = client.post('/login', data={'email': 'notfound@example.com', 'password': 'secret'})
     assert b"Geen gebruiker gevonden" in response.data
 
-@patch("webforms.get_connection")
+@patch("planning.webforms.webforms.get_connection")
 def test_login_not_admin(mock_conn, client):
     mock_cursor = MagicMock()
     mock_cursor.fetchone.return_value = {'email': 'test@example.com', 'password': 'hashed', 'is_admin': False}
@@ -34,8 +34,8 @@ def test_login_not_admin(mock_conn, client):
     response = client.post('/login', data={'email': 'test@example.com', 'password': 'secret'})
     assert b"geen admin" in response.data.lower()
 
-@patch("webforms.get_connection")
-@patch("webforms.check_bcrypt_hash")
+@patch("planning.webforms.webforms.get_connection")
+@patch("planning.webforms.webforms.check_bcrypt_hash")
 def test_login_wrong_password(mock_bcrypt, mock_conn, client):
     mock_cursor = MagicMock()
     mock_cursor.fetchone.return_value = {'email': 'test@example.com', 'password': 'hashed', 'is_admin': True}
@@ -49,7 +49,7 @@ def test_login_wrong_password(mock_bcrypt, mock_conn, client):
 # EVENT VALIDATIE
 # -------------------------------
 
-@patch("webforms.get_connection")
+@patch("planning.webforms.webforms.get_connection")
 def test_create_event_missing_field(mock_conn, client):
     response = client.post('/event', data={
         'title': '', 'description': '', 'location': '',
@@ -57,7 +57,7 @@ def test_create_event_missing_field(mock_conn, client):
     })
     assert b"Alle velden verplicht" in response.data
 
-@patch("webforms.get_connection")
+@patch("planning.webforms.webforms.get_connection")
 def test_create_event_invalid_fee(mock_conn, client):
     response = client.post('/event', data={
         'title': 'T', 'description': 'D', 'location': 'L',
@@ -67,7 +67,7 @@ def test_create_event_invalid_fee(mock_conn, client):
     })
     assert b"Ongeldige prijs" in response.data
 
-@patch("webforms.get_connection")
+@patch("planning.webforms.webforms.get_connection")
 def test_create_event_invalid_date(mock_conn, client):
     response = client.post('/event', data={
         'title': 'T', 'description': 'D', 'location': 'L',
@@ -81,7 +81,7 @@ def test_create_event_invalid_date(mock_conn, client):
 # SESSION VALIDATIE
 # -------------------------------
 
-@patch("webforms.get_connection")
+@patch("planning.webforms.webforms.get_connection")
 def test_create_session_missing_field(mock_conn, client):
     mock_conn.return_value.cursor.return_value.fetchall.return_value = [{"event_id": "E1", "title": "Event"}]
     response = client.post('/session', data={
@@ -91,7 +91,7 @@ def test_create_session_missing_field(mock_conn, client):
     })
     assert b"velden zijn verplicht" in response.data
 
-@patch("webforms.get_connection")
+@patch("planning.webforms.webforms.get_connection")
 def test_create_session_invalid_time(mock_conn, client):
     mock_conn.return_value.cursor.return_value.fetchall.return_value = [{"event_id": "E1", "title": "Event"}]
     response = client.post('/session', data={
