@@ -101,6 +101,8 @@ def main():
 
     try:
         while True:
+            sent_heartbeats = []
+            down_services = []
             for container_name, port in SERVICES:
                 status = check_service_status(container_name)
                 if status:
@@ -109,13 +111,15 @@ def main():
                         exchange=EXCHANGE_NAME,
                         routing_key=ROUTING_KEY,
                         body=message,
-                        properties=pika.BasicProperties(delivery_mode=2)  # Makes the message persistent
+                        properties=pika.BasicProperties(delivery_mode=2)
                     )
-                    logging.info(f"Sent heartbeat: {message.decode('utf-8')}")
+                    sent_heartbeats.append(container_name)
                 else:
-                    logging.info(f"Skipping heartbeat for {container_name} as it's DOWN")
+                    down_services.append(container_name)
 
-            time.sleep(1)  # Wait 1 second before the next check
+            logging.info(f"Sent heartbeat for: {', '.join(sent_heartbeats) if sent_heartbeats else 'None'}")
+            logging.info(f"DOWN: {', '.join(down_services) if down_services else 'None'}")
+            time.sleep(1)
 
     except KeyboardInterrupt:
         logging.info("Heartbeat monitor stopped by user")
