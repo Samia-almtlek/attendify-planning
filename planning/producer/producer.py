@@ -5,7 +5,7 @@ from datetime import datetime
 
 # --- RabbitMQ config ---------------------------------------------------------
 RABBITMQ_HOST      = 'rabbitmq' 
-RABBITMQ_PORT      = int(os.getenv("RABBITMQ_AMQP_PORT"))
+RABBITMQ_PORT      = int(os.getenv("RABBITMQ_AMQP_PORT", 5672))
 RABBITMQ_USERNAME  = os.getenv("RABBITMQ_USER")
 RABBITMQ_PASSWORD  = os.getenv("RABBITMQ_PASSWORD")
 RABBITMQ_VHOST     = os.getenv("RABBITMQ_USER")

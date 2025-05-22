@@ -1,7 +1,7 @@
 import pytest
 from flask import session
 from unittest.mock import patch, MagicMock
-import webforms  # jouw Flask app heet zo
+import planning.webforms.webforms as webforms  # jouw Flask app heet zo
 
 @pytest.fixture
 def client():

@@ -1,7 +1,13 @@
 import pytest
 import xml.etree.ElementTree as ET
 from unittest.mock import patch
-import planning.producer.producer as producer
+
+from planning.producer.producer import (
+    _event_to_xml,
+    _session_to_xml,
+    publish_event,
+    publish_session
+)
 
 # ---------------------------
 # Fixtures
@@ -47,9 +53,8 @@ def example_session():
 # ---------------------------
 
 def test_event_to_xml_contains_all_fields(example_event):
-    xml_bytes = producer._event_to_xml(example_event, "create")
+    xml_bytes = _event_to_xml(example_event, "create")
     xml = ET.fromstring(xml_bytes)
-
     assert xml.find(".//uid").text == example_event["event_id"]
     assert xml.find(".//title").text == example_event["title"]
     assert xml.find(".//description").text == example_event["description"]
@@ -57,7 +62,7 @@ def test_event_to_xml_contains_all_fields(example_event):
     assert xml.find(".//entrance_fee").text == example_event["entrance_fee"]
 
 def test_event_to_xml_delete_contains_only_uid():
-    xml_bytes = producer._event_to_xml({"event_id": "EVT999"}, "delete")
+    xml_bytes = _event_to_xml({"event_id": "EVT999"}, "delete")
     xml = ET.fromstring(xml_bytes)
     assert xml.find(".//uid").text == "EVT999"
     assert xml.find(".//title") is None
@@ -67,16 +72,15 @@ def test_event_to_xml_delete_contains_only_uid():
 # ---------------------------
 
 def test_session_to_xml_contains_all_fields(example_session):
-    xml_bytes = producer._session_to_xml(example_session, "create")
+    xml_bytes = _session_to_xml(example_session, "create")
     xml = ET.fromstring(xml_bytes)
-
     assert xml.find(".//uid").text == example_session["session_id"]
     assert xml.find(".//event_id").text == example_session["event_id"]
     assert xml.find(".//title").text == example_session["title"]
     assert xml.find(".//speaker/name").text.strip() == "John Doe"
 
 def test_session_to_xml_delete_contains_only_uid():
-    xml_bytes = producer._session_to_xml({"session_id": "SES999"}, "delete")
+    xml_bytes = _session_to_xml({"session_id": "SES999"}, "delete")
     xml = ET.fromstring(xml_bytes)
     assert xml.find(".//uid").text == "SES999"
     assert xml.find(".//title") is None
@@ -87,15 +91,15 @@ def test_session_to_xml_delete_contains_only_uid():
 
 def test_publish_event_missing_field():
     with pytest.raises(KeyError):
-        producer.publish_event({"title": "No ID"}, operation="create")
+        publish_event({"title": "No ID"}, operation="create")
 
 def test_publish_session_invalid_operation():
     with pytest.raises(ValueError):
-        producer.publish_session({}, operation="invalid")
+        publish_session({}, operation="invalid")
 
 def test_publish_event_invalid_operation():
     with pytest.raises(ValueError):
-        producer.publish_event({}, operation="notreal")
+        publish_event({}, operation="notreal")
 
 # ---------------------------
 # Mocked publish
@@ -103,7 +107,7 @@ def test_publish_event_invalid_operation():
 
 @patch("planning.producer.producer._publish")
 def test_publish_event_triggers_publish(mock_pub, example_event):
-    producer.publish_event(example_event, "create")
+    publish_event(example_event, "create")
     mock_pub.assert_called_once()
     args, _ = mock_pub.call_args
     assert b"<event>" in args[0]
@@ -111,7 +115,7 @@ def test_publish_event_triggers_publish(mock_pub, example_event):
 
 @patch("planning.producer.producer._publish")
 def test_publish_session_triggers_publish(mock_pub, example_session):
-    producer.publish_session(example_session, "create")
+    publish_session(example_session, "create")
     mock_pub.assert_called_once()
     args, _ = mock_pub.call_args
     assert b"<session>" in args[0]
@@ -120,7 +124,7 @@ def test_publish_session_triggers_publish(mock_pub, example_session):
 @patch("planning.producer.producer._publish")
 def test_publish_event_delete_triggers_publish(mock_pub):
     data = {"event_id": "EVT999"}
-    producer.publish_event(data, "delete")
+    publish_event(data, "delete")
     mock_pub.assert_called_once()
     args, _ = mock_pub.call_args
     assert b"<event>" in args[0]
@@ -130,7 +134,7 @@ def test_publish_event_delete_triggers_publish(mock_pub):
 @patch("planning.producer.producer._publish")
 def test_publish_session_delete_triggers_publish(mock_pub):
     data = {"session_id": "SES999"}
-    producer.publish_session(data, "delete")
+    publish_session(data, "delete")
     mock_pub.assert_called_once()
     args, _ = mock_pub.call_args
     assert b"<session>" in args[0]
