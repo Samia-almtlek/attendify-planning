@@ -1,4 +1,5 @@
 import os
+import sys
 import pika
 import xml.etree.ElementTree as ET
 from datetime import datetime
@@ -23,6 +24,41 @@ ROUTING_KEYS  = {                         # topic‐routing
         "delete": "session.delete"
     }
 }
+
+# --- Monitoring log utility --------------------------------------------------
+def send_monitoring_log(message: str, level: str = "info", sender: str = "event-producer"):
+    # Skip logging during unit tests
+    if os.getenv("UNITTEST_RUNNING") == "1" or "pytest" in sys.modules or "unittest" in sys.modules:
+        return
+
+    log = ET.Element("log")
+    ET.SubElement(log, "sender").text = sender
+    ET.SubElement(log, "timestamp").text = datetime.utcnow().isoformat() + "Z"
+    ET.SubElement(log, "level").text = level
+    ET.SubElement(log, "message").text = message
+    xml_bytes = ET.tostring(log, encoding="utf-8")
+
+    try:
+        conn, ch = _get_channel()
+        ch.basic_publish(
+            exchange="user-management",
+            routing_key="monitoring.log",
+            body=xml_bytes,
+            properties=pika.BasicProperties(content_type="application/xml")
+        )
+        conn.close()
+    except Exception as e:
+        # Optioneel: log dit lokaal als er echt iets misgaat
+        # print(f"🔴 Failed to send monitoring log: {e}")
+        pass
+
+def log_info(message: str):
+    send_monitoring_log(message, level="info")
+    # print(message)  # optioneel voor debug/ontwikkeling
+
+def log_error(message: str):
+    send_monitoring_log(message, level="error")
+    # print(message)  # optioneel voor debug/ontwikkeling
 
 # --- verbinding helper -------------------------------------------------------
 def _get_channel():
@@ -72,7 +108,6 @@ def _event_to_xml(data: dict, operation: str) -> bytes:
 
     return ET.tostring(root, encoding="utf-8")
 
-
 def _session_to_xml(data: dict, operation: str) -> bytes:
     root = ET.Element("attendify", {
         "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
@@ -103,8 +138,6 @@ def _session_to_xml(data: dict, operation: str) -> bytes:
 
     return ET.tostring(root, encoding="utf-8")
 
-
-
 # --- openbare API ------------------------------------------------------------
 def publish_event(data: dict, operation: str = "create") -> None:
     if operation not in ROUTING_KEYS["event"]:
@@ -123,9 +156,10 @@ def publish_event(data: dict, operation: str = "create") -> None:
     try:
         xml_bytes = _event_to_xml(data, operation)
         _publish(xml_bytes, ROUTING_KEYS["event"][operation])
+        log_info(f"Event published: {data['event_id']} ({operation})")
     except Exception as e:
+        log_error(f"❌ Failed to publish event: {e}")
         raise RuntimeError(f"❌ Failed to publish event to RabbitMQ: {e}")
-
 
 def publish_session(data: dict, operation: str = "create") -> None:
     if operation not in ROUTING_KEYS["session"]:
@@ -143,9 +177,10 @@ def publish_session(data: dict, operation: str = "create") -> None:
     try:
         xml_bytes = _session_to_xml(data, operation)
         _publish(xml_bytes, ROUTING_KEYS["session"][operation])
+        log_info(f"Session published: {data['session_id']} ({operation})")
     except Exception as e:
+        log_error(f"❌ Failed to publish session: {e}")
         raise RuntimeError(f"❌ Failed to publish session to RabbitMQ: {e}")
-
 
 def _publish(xml_payload: bytes, routing_key: str):
     # Bepaal exchange op basis van routing key
@@ -158,6 +193,5 @@ def _publish(xml_payload: bytes, routing_key: str):
         body=xml_payload,
         properties=pika.BasicProperties(content_type="application/xml")
     )
-    print(f"📨  Verzonden naar exchange '{exchange}' met key '{routing_key}':\n{xml_payload.decode()}\n")
+    log_info(f"📨  Verzonden naar exchange '{exchange}' met key '{routing_key}':\n{xml_payload.decode()}\n")
     conn.close()
-
