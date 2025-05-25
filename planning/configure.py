@@ -152,6 +152,7 @@ channel.queue_bind(queue="planning.company", exchange="company", routing_key="co
 
 channel.queue_declare(queue='planning.event', durable=True)
 channel.queue_bind(queue="planning.event", exchange="event", routing_key="event.register")
+channel.queue_bind(queue="planning.event", exchange="event", routing_key="event.create")
 channel.queue_bind(queue="planning.event", exchange="event", routing_key="event.update")
 channel.queue_bind(queue="planning.event", exchange="event", routing_key="event.unregister")
 channel.queue_bind(queue="planning.event", exchange="event", routing_key="event.delete")
@@ -215,13 +216,13 @@ channel.queue_bind(queue="mailing.retry", exchange="dlx", routing_key="retry.mai
 # MONITORING #
 ##############
 channel.queue_declare(queue='monitoring.log', durable=True)
-channel.queue_bind(queue="monitoring.log", exchange="user-management", routing_key="#")
-channel.queue_bind(queue="monitoring.log", exchange="company", routing_key="#")
-channel.queue_bind(queue="monitoring.log", exchange="session", routing_key="#")
-channel.queue_bind(queue="monitoring.log", exchange="event", routing_key="#")
-channel.queue_bind(queue="monitoring.log", exchange="sale", routing_key="#")
-channel.queue_bind(queue="monitoring.log", exchange="invoice", routing_key="#")
-channel.queue_bind(queue="monitoring.log", exchange="dlx", routing_key="#")
+channel.queue_bind(queue="monitoring.log", exchange="user-management", routing_key="monitoring.log")
+channel.queue_bind(queue="monitoring.log", exchange="company", routing_key="monitoring.log")
+channel.queue_bind(queue="monitoring.log", exchange="session", routing_key="monitoring.log")
+channel.queue_bind(queue="monitoring.log", exchange="event", routing_key="monitoring.log")
+channel.queue_bind(queue="monitoring.log", exchange="sale", routing_key="monitoring.log")
+channel.queue_bind(queue="monitoring.log", exchange="invoice", routing_key="monitoring.log")
+channel.queue_bind(queue="monitoring.log", exchange="dlx", routing_key="monitoring.log")
 
 channel.queue_declare(queue='monitoring.success', durable=True)
 channel.queue_bind(queue="monitoring.success", exchange="monitoring", routing_key="monitoring.success")

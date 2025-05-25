@@ -2,20 +2,62 @@ import pika
 import mysql.connector
 from mysql.connector import Error
 import os
-import logging
+import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-logging.basicConfig(level=logging.INFO)
-
-# RabbitMQ connection parameters
+# === LOGGING & MONITORING ===
 RABBITMQ_HOST = 'rabbitmq'
-RABBITMQ_PORT = os.environ.get('RABBITMQ_AMQP_PORT')
+RABBITMQ_PORT = int(os.environ.get('RABBITMQ_AMQP_PORT', 5672))
 RABBITMQ_USERNAME = os.environ.get('RABBITMQ_USER')
 RABBITMQ_PASSWORD = os.environ.get('RABBITMQ_PASSWORD')
 RABBITMQ_VHOST = os.environ.get('RABBITMQ_USER')
 
-# Database connection parameters
+def _get_channel():
+    creds = pika.PlainCredentials(RABBITMQ_USERNAME, RABBITMQ_PASSWORD)
+    params = pika.ConnectionParameters(
+        host=RABBITMQ_HOST,
+        port=RABBITMQ_PORT,
+        virtual_host=RABBITMQ_VHOST,
+        credentials=creds
+    )
+    conn = pika.BlockingConnection(params)
+    ch = conn.channel()
+    return conn, ch
+
+def send_monitoring_log(message: str, level: str = "info", sender: str = "user-consumer"):
+    # Skip logging during unit tests
+    if os.getenv("UNITTEST_RUNNING") == "1" or "pytest" in sys.modules or "unittest" in sys.modules:
+        return
+
+    log = ET.Element("log")
+    ET.SubElement(log, "sender").text = sender
+    ET.SubElement(log, "timestamp").text = datetime.utcnow().isoformat() + "Z"
+    ET.SubElement(log, "level").text = level
+    ET.SubElement(log, "message").text = message
+    xml_bytes = ET.tostring(log, encoding="utf-8")
+
+    try:
+        conn, ch = _get_channel()
+        ch.basic_publish(
+            exchange="event",
+            routing_key="monitoring.log",
+            body=xml_bytes,
+            properties=pika.BasicProperties(content_type="application/xml")
+        )
+        conn.close()
+    except Exception as e:
+        print(f"🔴 Failed to send monitoring log: {e}")
+
+def log_info(message: str):
+    print(message)
+    send_monitoring_log(message, level="info")
+
+def log_error(message: str):
+    print(message)
+    send_monitoring_log(message, level="error")
+
+# === DB CONFIG ===
 DB_HOST = 'db'
 DB_USER = 'root'
 DB_PASSWORD = 'root'
@@ -31,14 +73,12 @@ def create_database_connection():
         )
         return connection
     except Error as e:
-        logging.error(f"Error connecting to database: {e}")
+        log_error(f"Error connecting to database: {e}")
         return None
 
 def create_or_update_table(connection):
     try:
         cursor = connection.cursor()
-
-        # Controle: bestaat de tabel 'users'?
         cursor.execute("SHOW TABLES LIKE 'users'")
         table_exists = cursor.fetchone()
 
@@ -54,40 +94,37 @@ def create_or_update_table(connection):
         }
 
         if not table_exists:
-            # Tabel bestaat nog niet, maak alles in één keer aan
             column_defs = ",\n".join([f"{col} {typ}" for col, typ in expected_columns.items()])
             create_query = f"CREATE TABLE users ({column_defs})"
             cursor.execute(create_query)
-            logging.info("Tabel 'users' aangemaakt")
+            log_info("Tabel 'users' aangemaakt")
         else:
-            # Tabel bestaat: check bestaande kolommen
             cursor.execute("SHOW COLUMNS FROM users")
             existing_columns = [row[0] for row in cursor.fetchall()]
-            logging.info(f"Bestaande kolommen in 'users': {existing_columns}")
+            log_info(f"Bestaande kolommen in 'users': {existing_columns}")
 
             for col, col_type in expected_columns.items():
                 if col not in existing_columns:
-                    logging.warning(f"Kolom '{col}' ontbreekt en wordt toegevoegd...")
+                    log_info(f"Kolom '{col}' ontbreekt en wordt toegevoegd...")
                     if col == "user_id":
-                        # Speciaal geval: user_id moet UNIQUE NOT NULL zijn
                         cursor.execute("ALTER TABLE users ADD COLUMN user_id VARCHAR(50)")
-                        logging.info("Kolom 'user_id' toegevoegd zonder constraints")
+                        log_info("Kolom 'user_id' toegevoegd zonder constraints")
 
                         cursor.execute("DELETE FROM users WHERE user_id IS NULL OR user_id = ''")
                         removed = cursor.rowcount
                         if removed > 0:
-                            logging.warning(f"{removed} rijen zonder geldige user_id verwijderd")
+                            log_info(f"{removed} rijen zonder geldige user_id verwijderd")
 
                         cursor.execute("ALTER TABLE users MODIFY COLUMN user_id VARCHAR(50) UNIQUE NOT NULL")
-                        logging.info("Kolom 'user_id' aangepast naar UNIQUE NOT NULL")
+                        log_info("Kolom 'user_id' aangepast naar UNIQUE NOT NULL")
                     else:
                         alter_query = f"ALTER TABLE users ADD COLUMN {col} {col_type}"
                         cursor.execute(alter_query)
-                        logging.info(f"Kolom '{col}' toegevoegd met type {col_type}")
+                        log_info(f"Kolom '{col}' toegevoegd met type {col_type}")
 
         connection.commit()
     except Error as e:
-        logging.error(f"Fout bij aanmaken of aanpassen van tabel: {e}")
+        log_error(f"Fout bij aanmaken of aanpassen van tabel: {e}")
     finally:
         cursor.close()
 
@@ -107,7 +144,7 @@ def parse_message(message):
         is_admin = is_admin_text == 'true'
         return operation, uid, first_name, last_name, email, title, password, is_admin
     except Exception as e:
-        logging.error(f"Error parsing message: {e}")
+        log_error(f"Error parsing message: {e}")
         return None, None, None, None, None, None, None, None
 
 def user_id_exists(connection, uid):
@@ -118,7 +155,7 @@ def user_id_exists(connection, uid):
         result = cursor.fetchone()
         return result[0] > 0
     except Error as e:
-        logging.error(f"Error checking if user ID exists: {e}")
+        log_error(f"Error checking if user ID exists: {e}")
         return False
     finally:
         cursor.close()
@@ -126,7 +163,7 @@ def user_id_exists(connection, uid):
 def create_user(connection, uid, first_name, last_name, email, title, password, is_admin):
     try:
         if user_id_exists(connection, uid):
-            logging.warning(f"User ID {uid} already exists, skipping creation")
+            log_info(f"User ID {uid} already exists, skipping creation")
             return False
 
         cursor = connection.cursor()
@@ -136,10 +173,10 @@ def create_user(connection, uid, first_name, last_name, email, title, password, 
         """
         cursor.execute(query, (uid, first_name, last_name, email, title, password, is_admin))
         connection.commit()
-        logging.info(f"User created: {email} with ID: {uid}")
+        log_info(f"User created: {email} with ID: {uid}")
         return True
     except Error as e:
-        logging.error(f"Error creating user: {e}")
+        log_error(f"Error creating user: {e}")
         return False
     finally:
         cursor.close()
@@ -154,13 +191,13 @@ def update_user(connection, uid, first_name, last_name, email, title, password, 
         """
         cursor.execute(query, (first_name, last_name, email, title, password, is_admin, uid))
         if cursor.rowcount == 0:
-            logging.warning(f"No user found with ID {uid} to update")
+            log_info(f"No user found with ID {uid} to update")
         else:
             connection.commit()
-            logging.info(f"User updated: {uid}")
+            log_info(f"User updated: {uid}")
         return True
     except Error as e:
-        logging.error(f"Error updating user: {e}")
+        log_error(f"Error updating user: {e}")
         return False
     finally:
         cursor.close()
@@ -171,13 +208,13 @@ def delete_user(connection, uid):
         query = "DELETE FROM users WHERE user_id=%s"
         cursor.execute(query, (uid,))
         if cursor.rowcount == 0:
-            logging.warning(f"No user found with ID {uid} to delete")
+            log_info(f"No user found with ID {uid} to delete")
         else:
             connection.commit()
-            logging.info(f"User deleted: {uid}")
+            log_info(f"User deleted: {uid}")
         return True
     except Error as e:
-        logging.error(f"Error deleting user: {e}")
+        log_error(f"Error deleting user: {e}")
         return False
     finally:
         cursor.close()
@@ -185,17 +222,15 @@ def delete_user(connection, uid):
 def callback(ch, method, properties, body):
     operation, uid, first_name, last_name, email, title, password, is_admin = parse_message(body)
     if operation is None:
-        logging.error("Failed to parse message, acknowledging anyway")
+        log_error("Failed to parse message, acknowledging anyway")
         return
 
     connection_db = create_database_connection()
     if connection_db is None:
-        logging.error("Failed to connect to database, acknowledging message")
+        log_error("Failed to connect to database, acknowledging message")
         return
 
-    # 🔁 Controleer en update de 'users' tabelstructuur
-    if connection_db:
-        create_or_update_table(connection_db)
+    create_or_update_table(connection_db)
 
     try:
         if operation == 'create':
@@ -205,9 +240,9 @@ def callback(ch, method, properties, body):
         elif operation == 'delete':
             delete_user(connection_db, uid)
         else:
-            logging.error(f"Unknown operation: {operation}")
+            log_error(f"Unknown operation: {operation}")
     except Exception as e:
-        logging.error(f"Unexpected error processing message: {e}")
+        log_error(f"Unexpected error processing message: {e}")
     finally:
         connection_db.close()
 
@@ -221,7 +256,7 @@ def main():
     ))
     channel = connection.channel()
     channel.basic_consume(queue='planning.user', on_message_callback=callback, auto_ack=True)
-    logging.info("Waiting for messages. To exit press CTRL+C")
+    log_info("Waiting for messages. To exit press CTRL+C")
     channel.start_consuming()
 
 if __name__ == "__main__":

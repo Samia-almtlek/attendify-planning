@@ -41,24 +41,22 @@ def send_monitoring_log(message: str, level: str = "info", sender: str = "event-
     try:
         conn, ch = _get_channel()
         ch.basic_publish(
-            exchange="user-management",
+            exchange="event",
             routing_key="monitoring.log",
             body=xml_bytes,
             properties=pika.BasicProperties(content_type="application/xml")
         )
         conn.close()
     except Exception as e:
-        # Optioneel: log dit lokaal als er echt iets misgaat
-        # print(f"🔴 Failed to send monitoring log: {e}")
-        pass
+        print(f"🔴 Failed to send monitoring log: {e}")
 
 def log_info(message: str):
+    print(message)  # Altijd naar de console
     send_monitoring_log(message, level="info")
-    # print(message)  # optioneel voor debug/ontwikkeling
 
 def log_error(message: str):
+    print(message)  # Altijd naar de console
     send_monitoring_log(message, level="error")
-    # print(message)  # optioneel voor debug/ontwikkeling
 
 # --- verbinding helper -------------------------------------------------------
 def _get_channel():
@@ -193,5 +191,6 @@ def _publish(xml_payload: bytes, routing_key: str):
         body=xml_payload,
         properties=pika.BasicProperties(content_type="application/xml")
     )
-    log_info(f"📨  Verzonden naar exchange '{exchange}' met key '{routing_key}':\n{xml_payload.decode()}\n")
+    msg = f"📨  Verzonden naar exchange '{exchange}' met key '{routing_key}'"
+    log_info(msg)
     conn.close()
