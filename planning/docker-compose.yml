@@ -10,8 +10,8 @@ services:
       - ./webforms:/usr/local/bin/webforms
     environment:
       - LOCAL_DB_HOST=db
-      - LOCAL_DB_USER=root
-      - LOCAL_DB_PASSWORD=root
+      - LOCAL_DB_USER=${LOCAL_DB_USER}
+      - LOCAL_DB_PASSWORD=${LOCAL_DB_PASSWORD}
       - LOCAL_DB_NAME=planning
     depends_on:
       - db
