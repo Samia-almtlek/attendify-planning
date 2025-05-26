@@ -11,6 +11,7 @@ RABBITMQ_USERNAME  = os.getenv("RABBITMQ_USER")
 RABBITMQ_PASSWORD  = os.getenv("RABBITMQ_PASSWORD")
 RABBITMQ_VHOST     = os.getenv("RABBITMQ_USER")
 
+
 EXCHANGE_NAME = "event"                   # één exchange voor alles
 ROUTING_KEYS  = {                         # topic‐routing
     "event": {
