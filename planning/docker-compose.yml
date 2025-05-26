@@ -30,8 +30,6 @@ services:
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
-    ports:
-      - "${PORT_PHPMYADMIN}:80"
     environment:
       - PMA_HOST=db
       - PMA_USER=${LOCAL_DB_USER}
