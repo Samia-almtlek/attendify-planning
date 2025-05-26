@@ -17,8 +17,8 @@ RABBITMQ_VHOST = os.environ.get('RABBITMQ_USER')
 
 # MySQL settings
 DB_HOST = 'db'
-DB_USER = 'root'
-DB_PASSWORD = 'root'
+DB_USER = os.environ.get('LOCAL_DB_USER')
+DB_PASSWORD = os.environ.get('LOCAL_DB_PASSWORD')
 DB_NAME = 'planning'
 
 def create_db_connection():

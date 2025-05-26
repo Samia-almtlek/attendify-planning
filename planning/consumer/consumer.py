@@ -59,8 +59,8 @@ def log_error(message: str):
 
 # === DB CONFIG ===
 DB_HOST = 'db'
-DB_USER = 'root'
-DB_PASSWORD = 'root'
+DB_USER = os.environ.get('LOCAL_DB_USER')
+DB_PASSWORD = os.environ.get('LOCAL_DB_PASSWORD')
 DB_NAME = 'planning'
 
 def create_database_connection():
